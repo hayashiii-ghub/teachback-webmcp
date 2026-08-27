@@ -371,6 +371,42 @@ test("keeps intermediate-width sections in a coherent reading order", async ({
   expect(desktop.main.x + desktop.main.width).toBe(desktop.review.x);
 });
 
+test("aligns every case card when a name wraps", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "日本語" }).click();
+  await page.setViewportSize({ width: 820, height: 900 });
+
+  const readCardAlignment = () =>
+    page.locator(".case-item").evaluateAll((cards) =>
+      cards.map((card) => ({
+        height: Math.round(card.getBoundingClientRect().height),
+        idTop: Math.round(
+          card
+            .querySelector(".case-primary > span:first-child")!
+            .getBoundingClientRect().top,
+        ),
+        stateTop: Math.round(
+          card.querySelector(".case-secondary")!.getBoundingClientRect().top,
+        ),
+      })),
+    );
+
+  const expectAligned = async () => {
+    const cards = await readCardAlignment();
+    expect(new Set(cards.map(({ height }) => height)).size).toBe(1);
+    expect(new Set(cards.map(({ idTop }) => idTop)).size).toBe(1);
+    expect(new Set(cards.map(({ stateTop }) => stateTop)).size).toBe(1);
+  };
+
+  await expectAligned();
+
+  await page
+    .getByRole("button", { name: "条件を確認して変更案を作る" })
+    .click();
+  await expectAligned();
+});
+
 test("recovers safely from malformed saved state", async ({ page }) => {
   await page.evaluate(() => {
     localStorage.setItem("teachback-demo-v1", JSON.stringify({ storageVersion: 1 }));

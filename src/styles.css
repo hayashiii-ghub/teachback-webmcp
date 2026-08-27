@@ -992,13 +992,22 @@ a:focus-visible {
   }
 
   .case-list li {
+    display: flex;
     min-width: 0;
   }
 
   .case-item {
+    height: 100%;
     min-height: 90px;
+    justify-content: flex-start;
     padding: 14px 46px 14px 18px;
     border: 1px solid var(--border);
+  }
+
+  .case-primary {
+    min-height: 56px;
+    align-content: flex-start;
+    align-items: flex-start;
   }
 
   .case-item.is-selected::before {
