@@ -7,6 +7,23 @@ test.beforeEach(async ({ page }) => {
 
 test("prepares, approves, and keeps commit bound to the agent tool", async ({ page }) => {
   await expect(
+    page.getByText(
+      "Teach it once. Reuse it only when the conditions match and a person approves the exact changes.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Challenge demo · All people and reservations are synthetic", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Success example · conditions match", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Stop example · conditions fail", { exact: true }),
+  ).toBeVisible();
+  await expect(
     page.getByText("Show once. Set the boundaries. Reuse safely.", {
       exact: true,
     }),
@@ -21,6 +38,12 @@ test("prepares, approves, and keeps commit bound to the agent tool", async ({ pa
   await expect(
     page.getByText("Not available in this browser", { exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByText(
+      "This checks policy and drafts changes. Nothing is applied yet.",
+      { exact: true },
+    ),
+  ).toBeVisible();
 
   await page
     .getByRole("button", {
@@ -32,6 +55,12 @@ test("prepares, approves, and keeps commit bound to the agent tool", async ({ pa
   await expect(page.getByText("No changes have been applied.")).toBeVisible();
   await expect(page.getByText("Eligible", { exact: true })).toBeVisible();
   await expect(page.locator(".eligibility-list .check-icon")).toHaveCount(7);
+  await expect(page.getByText("Approval scope", { exact: true })).toBeVisible();
+  await expect(page.getByText("This exact proposal · once · within 5 minutes", {
+    exact: true,
+  })).toBeVisible();
+  await expect(page.getByText("teachback_commit_approved", { exact: true }))
+    .toBeVisible();
 
   await page.getByRole("button", { name: "Approve preview" }).click();
   await expect(page.getByText("Approved", { exact: true })).toBeVisible();
@@ -69,6 +98,14 @@ test("switches to Japanese without changing the prepared run", async ({ page }) 
     .toBeVisible();
   await expect(page.getByText("Built in Japan", { exact: true }))
     .toHaveAttribute("lang", "en");
+  await expect(
+    page.getByText(
+      "一度教えたWeb業務を、条件が一致し、人が変更内容を承認した場合だけ再実行します。",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(page.getByText("人物・予約情報はすべて合成データです"))
+    .toBeVisible();
   await page
     .getByRole("button", { name: "条件を確認して変更案を作る", exact: true })
     .click();
@@ -465,6 +502,14 @@ test("keeps keyboard focus inside the audit dialog and restores it", async ({
 
   const closeButton = page.getByRole("button", { name: "Close audit trail" });
   await expect(closeButton).toBeFocused();
+  await expect(
+    page.getByText(
+      "Evidence from policy evaluation through human approval and WebMCP execution or refusal.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(page.getByText("Human demonstration", { exact: true }))
+    .toBeVisible();
   await expect(page.locator(".app-content")).toHaveAttribute("inert", "");
   await page.keyboard.press("Tab");
   await expect(closeButton).toBeFocused();

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   actorLabel,
+  auditOperationLabel,
   auditSummaryLabel,
   caseLabel,
   copyFor,
@@ -17,7 +18,8 @@ describe("Teachback UI localization", () => {
 
     expect(copy.eligibility).toHaveLength(7);
     expect(caseLabel("ja", "Recorded")).toBe("教えた例");
-    expect(caseLabel("ja", "Needs review")).toBe("確認前");
+    expect(caseLabel("ja", "Needs review")).toBe("成功例 · 条件一致");
+    expect(caseLabel("ja", "Human only")).toBe("停止例 · 条件不一致");
     expect(caseLabel("ja", "Resolved")).toBe("再利用済み");
     expect(statusLabel("ja", "confirmed")).toBe("確定");
     expect(fieldLabel("ja", "Guest message")).toBe(
@@ -30,6 +32,7 @@ describe("Teachback UI localization", () => {
     expect(copy.criteriaPending).toBe("未判定");
     expect(copy.webMcpReady).toBe("利用可能 · 3ツール");
     expect(copy.approvalValidUntil).toBe("有効期限");
+    expect(copy.demoDataNotice).toContain("合成データ");
   });
 
   it("keeps exact guest-facing and handoff content unchanged", () => {
@@ -56,6 +59,12 @@ describe("Teachback UI localization", () => {
         "Prepared Late Arrival Care for R-2048.",
       ),
     ).toBe("R-2048の変更案を準備しました。");
+    expect(
+      auditOperationLabel(
+        "ja",
+        "Committed approved run run-1 to R-2048.",
+      ),
+    ).toBe("teachback_commit_approved");
   });
 
   it("localizes live announcements without changing unknown messages", () => {

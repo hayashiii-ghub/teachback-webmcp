@@ -32,6 +32,7 @@ import {
 } from "./icons";
 import {
   actorLabel,
+  auditOperationLabel,
   auditSummaryLabel,
   caseLabel,
   copyFor,
@@ -315,6 +316,17 @@ function AppHeader({
         </button>
       </div>
     </header>
+  );
+}
+
+function DemoIntro({ locale }: { locale: UiLocale }) {
+  const copy = copyFor(locale);
+
+  return (
+    <section className="demo-intro" aria-label={copy.primaryPitch}>
+      <strong>{copy.primaryPitch}</strong>
+      <span>{copy.demoDataNotice}</span>
+    </section>
   );
 }
 
@@ -689,6 +701,40 @@ function ApprovalStatus({
   );
 }
 
+function ApprovalScope({
+  locale,
+  run,
+}: {
+  locale: UiLocale;
+  run: PreparedRun;
+}) {
+  const copy = copyFor(locale);
+
+  return (
+    <section className="approval-scope" aria-labelledby="approval-scope-heading">
+      <strong id="approval-scope-heading">{copy.approvalScope}</strong>
+      <dl>
+        <div>
+          <dt>{copy.approvalTarget}</dt>
+          <dd>{run.reservationId}</dd>
+        </div>
+        <div>
+          <dt>{copy.approvalFields}</dt>
+          <dd>{copy.approvalFieldsValue}</dd>
+        </div>
+        <div>
+          <dt>{copy.approvalLimit}</dt>
+          <dd>{copy.approvalLimitValue}</dd>
+        </div>
+        <div>
+          <dt>{copy.approvalTool}</dt>
+          <dd><code>teachback_commit_approved</code></dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
 function ReviewPanel({
   locale,
   isSourceCase,
@@ -806,13 +852,17 @@ function ReviewPanel({
           <span />
         </div>
       ) : null}
+      {isAwaiting && run ? <ApprovalScope locale={locale} run={run} /> : null}
       <div className="review-actions">
         {!isSourceCase && !isRejected ? (
           <>
             {(!run || isDiscarded) ? (
-              <button className="primary-action" type="button" onClick={onPrepare}>
-                {copy.preparePreview}
-              </button>
+              <>
+                <button className="primary-action" type="button" onClick={onPrepare}>
+                  {copy.preparePreview}
+                </button>
+                <p className="action-note">{copy.prepareNoSideEffect}</p>
+              </>
             ) : isAwaiting ? (
               <button
                 className="primary-action"
@@ -960,11 +1010,15 @@ function AuditDrawer({
             <CloseIcon />
           </button>
         </div>
+        <p className="audit-evidence">{copy.auditEvidence}</p>
         <ol className="audit-events">
           {[...events].reverse().map((event) => (
             <li key={event.id}>
               <strong>{actorLabel(locale, event.actor)}</strong>
-              <span>{auditSummaryLabel(locale, event.summary)}</span>
+              <div className="audit-event-body">
+                <code>{auditOperationLabel(locale, event.summary)}</code>
+                <span>{auditSummaryLabel(locale, event.summary)}</span>
+              </div>
               <time dateTime={event.at}>
                 {new Date(event.at).toLocaleTimeString(
                   locale === "ja" ? "ja-JP" : "en-US",
@@ -1168,6 +1222,7 @@ export default function App() {
           onLocaleChange={changeLocale}
           onReset={reset}
         />
+        <DemoIntro locale={locale} />
         <div className="app-grid">
           <CaseQueue
             locale={locale}

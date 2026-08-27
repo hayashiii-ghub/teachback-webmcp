@@ -16,6 +16,9 @@ export const UI_COPY = {
     englishLanguage: "English",
     japaneseLanguage: "日本語",
     resetDemo: "Reset demo",
+    primaryPitch:
+      "Teach it once. Reuse it only when the conditions match and a person approves the exact changes.",
+    demoDataNotice: "Challenge demo · All people and reservations are synthetic",
     cases: "Cases",
     playbookFlow: "How Teachback reuses work",
     taughtFrom: "1 · Taught from",
@@ -76,7 +79,17 @@ export const UI_COPY = {
     refusedPreparation:
       "The website refused to prepare changes for this case.",
     preparePreview: "Check conditions and prepare preview",
+    prepareNoSideEffect: "This checks policy and drafts changes. Nothing is applied yet.",
     approvePreview: "Approve preview",
+    approvalScope: "Approval scope",
+    approvalTarget: "Target",
+    approvalFields: "Changes",
+    approvalFieldsValue: "4 fields shown on this page",
+    approvalLimit: "Permission",
+    approvalLimitValue: "This exact proposal · once · within 5 minutes",
+    approvalTool: "Execution tool",
+    auditEvidence:
+      "Evidence from policy evaluation through human approval and WebMCP execution or refusal.",
     approvedReady: "Approved",
     approvalWindow: "Approval window",
     approvalValidUntil: "Valid until",
@@ -111,6 +124,9 @@ export const UI_COPY = {
     englishLanguage: "English",
     japaneseLanguage: "日本語",
     resetDemo: "デモをリセット",
+    primaryPitch:
+      "一度教えたWeb業務を、条件が一致し、人が変更内容を承認した場合だけ再実行します。",
+    demoDataNotice: "応募デモ · 人物・予約情報はすべて合成データです",
     cases: "予約一覧",
     playbookFlow: "Teachbackの流れ",
     taughtFrom: "1 · 教えた対応",
@@ -171,7 +187,18 @@ export const UI_COPY = {
     refusedPreparation:
       "このケースは対象外のため、変更案は作成されませんでした。",
     preparePreview: "条件を確認して変更案を作る",
+    prepareNoSideEffect:
+      "条件評価と変更案の作成だけを行います。まだ変更は反映しません。",
     approvePreview: "この内容を承認",
+    approvalScope: "今回の承認範囲",
+    approvalTarget: "対象",
+    approvalFields: "変更内容",
+    approvalFieldsValue: "この画面に表示した4項目",
+    approvalLimit: "許可範囲",
+    approvalLimitValue: "この変更案だけ · 1回限り · 5分以内",
+    approvalTool: "実行ツール",
+    auditEvidence:
+      "条件評価から人の承認、WebMCPによる実行または停止までを記録します。",
     approvedReady: "承認済み",
     approvalWindow: "承認の有効期限",
     approvalValidUntil: "有効期限",
@@ -209,14 +236,14 @@ export function copyFor(locale: UiLocale): UiCopy {
 const CASE_LABELS: Record<UiLocale, Record<CaseLabel, string>> = {
   en: {
     Recorded: "Taught example",
-    "Needs review": "Ready to check",
-    "Human only": "Human only",
+    "Needs review": "Success example · conditions match",
+    "Human only": "Stop example · conditions fail",
     Resolved: "Reused",
   },
   ja: {
     Recorded: "教えた例",
-    "Needs review": "確認前",
-    "Human only": "担当者の判断が必要",
+    "Needs review": "成功例 · 条件一致",
+    "Human only": "停止例 · 条件不一致",
     Resolved: "再利用済み",
   },
 };
@@ -349,6 +376,36 @@ export function actorLabel(
   actor: AuditEvent["actor"],
 ): string {
   return ACTOR_LABELS[locale][actor];
+}
+
+export function auditOperationLabel(
+  locale: UiLocale,
+  summary: string,
+): string {
+  const labels = {
+    en: {
+      teaching: "Human demonstration",
+      policy: "Policy evaluation",
+      approval: "Human approval",
+      webmcp: "teachback_commit_approved",
+      lifecycle: "Approval lifecycle",
+    },
+    ja: {
+      teaching: "人の実演",
+      policy: "条件評価",
+      approval: "人の承認",
+      webmcp: "teachback_commit_approved",
+      lifecycle: "承認状態",
+    },
+  }[locale];
+
+  if (summary.startsWith("Recorded ")) return labels.teaching;
+  if (summary.startsWith("Prepared ") || summary.startsWith("Rejected ")) {
+    return labels.policy;
+  }
+  if (summary.startsWith("Approved ")) return labels.approval;
+  if (summary.startsWith("Committed ")) return labels.webmcp;
+  return labels.lifecycle;
 }
 
 export function auditSummaryLabel(locale: UiLocale, summary: string): string {
