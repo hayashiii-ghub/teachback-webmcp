@@ -1,5 +1,9 @@
 node_modules/
 dist/
+.next/
+.vinext/
+.wrangler/
+next-env.d.ts
 test-results/
 playwright-report/
 *.log

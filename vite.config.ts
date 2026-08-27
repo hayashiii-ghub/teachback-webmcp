@@ -1,5 +1,7 @@
-import { defineConfig } from "vitest/config";
-import react from "@vitejs/plugin-react";
+import { cloudflare } from "@cloudflare/vite-plugin";
+import { sites } from "@openai/sites-vite-plugin";
+import vinext from "vinext";
+import { defineConfig } from "vite";
 
 const webMcpHeaders = {
   "Origin-Agent-Cluster": "?1",
@@ -8,7 +10,17 @@ const webMcpHeaders = {
 };
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    vinext(),
+    sites(),
+    cloudflare({
+      viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
+      config: {
+        main: "./worker/index.ts",
+        compatibility_flags: ["nodejs_compat"],
+      },
+    }),
+  ],
   server: {
     host: "127.0.0.1",
     headers: webMcpHeaders,
@@ -16,9 +28,5 @@ export default defineConfig({
   preview: {
     host: "127.0.0.1",
     headers: webMcpHeaders,
-  },
-  test: {
-    environment: "node",
-    include: ["src/**/*.test.ts"],
   },
 });
