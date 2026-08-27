@@ -1,0 +1,76 @@
+import { DEMO_DATE, type AppState, type Reservation } from "./domain";
+
+export const reservationFixtures: Reservation[] = [
+  {
+    id: "R-2041",
+    guestDisplayName: "Aiko Tanaka",
+    status: "confirmed",
+    arrivalDate: DEMO_DATE,
+    plannedArrivalTime: "18:00",
+    requestedArrivalTime: "21:30",
+    estimatedArrivalTime: "21:30",
+    mealPlan: "dinner_included",
+    mealService: "late_meal_box",
+    hasNewDietaryRequest: false,
+    requestsTaxi: false,
+    requestsCompensation: false,
+    guestMessageDraft: "Your late-arrival meal box will be ready at reception.",
+    shiftHandoff: "Late arrival at 21:30. Meal box at reception.",
+    version: 2,
+    label: "Recorded",
+  },
+  {
+    id: "R-2048",
+    guestDisplayName: "Emma Wilson",
+    status: "confirmed",
+    arrivalDate: DEMO_DATE,
+    plannedArrivalTime: "17:30",
+    requestedArrivalTime: "20:45",
+    estimatedArrivalTime: null,
+    mealPlan: "dinner_included",
+    mealService: "regular_dinner",
+    hasNewDietaryRequest: false,
+    requestsTaxi: false,
+    requestsCompensation: false,
+    guestMessageDraft: null,
+    shiftHandoff: null,
+    version: 1,
+    label: "Needs review",
+  },
+  {
+    id: "R-2052",
+    guestDisplayName: "Daniel Kim",
+    status: "confirmed",
+    arrivalDate: DEMO_DATE,
+    plannedArrivalTime: "18:30",
+    requestedArrivalTime: "23:40",
+    estimatedArrivalTime: null,
+    mealPlan: "dinner_included",
+    mealService: "regular_dinner",
+    hasNewDietaryRequest: true,
+    requestsTaxi: true,
+    requestsCompensation: false,
+    guestMessageDraft: null,
+    shiftHandoff: null,
+    version: 1,
+    label: "Human only",
+  },
+];
+
+export function createInitialState(): AppState {
+  return {
+    storageVersion: 1,
+    reservations: structuredClone(reservationFixtures),
+    selectedReservationId: "R-2048",
+    activeRun: null,
+    rejection: null,
+    audit: [
+      {
+        id: "audit-seed",
+        at: "2026-08-27T09:00:00.000Z",
+        actor: "Human",
+        summary: "Recorded the Late Arrival Care demonstration on R-2041.",
+      },
+    ],
+  };
+}
