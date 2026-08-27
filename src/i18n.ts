@@ -12,7 +12,6 @@ export const UI_COPY = {
     documentTitle: "Teachback — Human-approved WebMCP playbooks",
     metaDescription:
       "Teachback turns demonstrated frontline work into human-approved playbooks that websites can safely enforce through WebMCP.",
-    tagline: "Show once. Set the boundaries. Reuse safely.",
     language: "Display language",
     englishLanguage: "English",
     japaneseLanguage: "日本語",
@@ -108,7 +107,6 @@ export const UI_COPY = {
     documentTitle: "Teachback — 現場の判断を安全に引き継ぐ",
     metaDescription:
       "Teachbackは、現場で実演した対応を、人が承認した安全なWebMCPプレイブックとして次の担当者へ引き継ぐツールです。",
-    tagline: "一度教える。任せる範囲を決める。安心して繰り返す。",
     language: "表示言語",
     englishLanguage: "English",
     japaneseLanguage: "日本語",

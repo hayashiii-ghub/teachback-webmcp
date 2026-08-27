@@ -70,9 +70,6 @@ a:focus-visible {
 }
 
 .brand-lockup {
-  display: flex;
-  align-items: baseline;
-  gap: 30px;
   min-width: 0;
 }
 
@@ -82,13 +79,6 @@ a:focus-visible {
   line-height: 44px;
   font-weight: 700;
   letter-spacing: -0.04em;
-  white-space: nowrap;
-}
-
-.tagline {
-  color: #393633;
-  font-size: 18px;
-  line-height: 28px;
   white-space: nowrap;
 }
 
@@ -967,19 +957,11 @@ a:focus-visible {
   border: 0;
 }
 
-@media (max-width: 1159px) {
+@media (max-width: 1279px) {
   .app-header {
     gap: 24px;
     padding-right: 26px;
     padding-left: 26px;
-  }
-
-  .brand-lockup {
-    gap: 20px;
-  }
-
-  .tagline {
-    font-size: 16px;
   }
 
   .header-actions {
@@ -987,12 +969,86 @@ a:focus-visible {
   }
 
   .app-grid {
-    grid-template-columns: 270px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 34%);
+  }
+
+  .case-queue {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    padding: 24px 26px 20px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .case-queue h2 {
+    margin: 0 0 14px;
+    padding-bottom: 12px;
+  }
+
+  .case-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+  }
+
+  .case-list li {
+    min-width: 0;
+  }
+
+  .case-item {
+    min-height: 90px;
+    padding: 14px 46px 14px 18px;
+    border: 1px solid var(--border);
+  }
+
+  .case-item.is-selected::before {
+    width: 5px;
+  }
+
+  .case-caret {
+    right: 16px;
+  }
+
+  .reservation-workspace {
+    grid-row: 2;
+    grid-column: 1;
   }
 
   .review-panel {
+    grid-row: 2;
     grid-column: 2;
-    padding-top: 0;
+    border-top: 0;
+    border-left: 1px solid var(--border);
+  }
+
+  .review-heading-row,
+  .webmcp-availability,
+  .source-case-note,
+  .criteria-complete-summary,
+  .eligibility-list,
+  .review-actions {
+    margin-right: 24px;
+    margin-left: 24px;
+  }
+
+  .approval-step {
+    margin-left: 45px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .app-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reservation-workspace {
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  .review-panel {
+    grid-row: 3;
+    grid-column: 1;
     border-top: 1px solid var(--border);
     border-left: 0;
   }
@@ -1003,27 +1059,14 @@ a:focus-visible {
   .criteria-complete-summary,
   .eligibility-list,
   .review-actions {
-    margin-right: 44px;
-    margin-left: 44px;
+    width: min(680px, calc(100% - 72px));
+    margin-right: auto;
+    margin-left: auto;
   }
 
   .approval-step {
-    margin-left: 65px;
-  }
-}
-
-@media (max-width: 959px) {
-  .app-header {
-    flex-wrap: wrap;
-    padding-top: 14px;
-    padding-bottom: 14px;
-  }
-
-  .brand-lockup {
-    flex: 1 1 560px;
-  }
-
-  .header-actions {
+    width: min(680px, calc(100% - 72px));
+    margin-right: auto;
     margin-left: auto;
   }
 }
@@ -1040,19 +1083,11 @@ a:focus-visible {
   .brand-lockup {
     width: 100%;
     flex: 0 0 auto;
-    flex-direction: column;
-    gap: 2px;
   }
 
   .brand {
     font-size: 34px;
     line-height: 38px;
-  }
-
-  .tagline {
-    font-size: 14px;
-    line-height: 20px;
-    white-space: normal;
   }
 
   .header-actions {
@@ -1126,11 +1161,14 @@ a:focus-visible {
   .criteria-complete-summary,
   .eligibility-list,
   .review-actions {
+    width: auto;
     margin-right: 20px;
     margin-left: 20px;
   }
 
   .approval-step {
+    width: auto;
+    margin-right: 0;
     margin-left: 41px;
   }
 }

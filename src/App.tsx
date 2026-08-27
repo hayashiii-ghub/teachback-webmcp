@@ -281,7 +281,6 @@ function AppHeader({
     <header className="app-header">
       <div className="brand-lockup">
         <span className="brand">Teachback</span>
-        <span className="tagline">{copy.tagline}</span>
       </div>
       <div className="header-actions">
         <span className="origin-mark" lang="en">

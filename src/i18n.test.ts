@@ -15,9 +15,6 @@ describe("Teachback UI localization", () => {
   it("provides a complete Japanese operator vocabulary", () => {
     const copy = copyFor("ja");
 
-    expect(copy.tagline).toBe(
-      "一度教える。任せる範囲を決める。安心して繰り返す。",
-    );
     expect(copy.eligibility).toHaveLength(7);
     expect(caseLabel("ja", "Recorded")).toBe("教えた例");
     expect(caseLabel("ja", "Needs review")).toBe("確認前");

@@ -6,6 +6,11 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("prepares, approves, and keeps commit bound to the agent tool", async ({ page }) => {
+  await expect(
+    page.getByText("Show once. Set the boundaries. Reuse safely.", {
+      exact: true,
+    }),
+  ).toHaveCount(0);
   const flow = page.getByRole("region", { name: "How Teachback reuses work" });
   await expect(flow.getByText("1 · Taught from")).toBeVisible();
   await expect(flow.getByText("R-2041 · Aiko Tanaka")).toBeVisible();
@@ -52,6 +57,11 @@ test("switches to Japanese without changing the prepared run", async ({ page }) 
   await expect(page.locator("html")).toHaveAttribute("lang", "ja");
   await expect(page).toHaveTitle("Teachback — 現場の判断を安全に引き継ぐ");
   await expect(page.getByRole("heading", { name: "予約一覧" })).toBeVisible();
+  await expect(
+    page.getByText("一度教える。任せる範囲を決める。安心して繰り返す。", {
+      exact: true,
+    }),
+  ).toHaveCount(0);
   const flow = page.getByRole("region", { name: "Teachbackの流れ" });
   await expect(flow.getByText("1 · 教えた対応")).toBeVisible();
   await expect(flow.getByText("3 · この予約で再利用")).toBeVisible();
@@ -276,7 +286,17 @@ test("keeps the review flow usable when WebMCP registration fails", async ({
 
 test("Japanese UI has no horizontal page overflow", async ({ page }) => {
   await page.getByRole("button", { name: "日本語" }).click();
-  for (const width of [390, 1120, 1159, 1160, 1440]) {
+  for (const width of [
+    390,
+    768,
+    900,
+    1023,
+    1024,
+    1120,
+    1279,
+    1280,
+    1440,
+  ]) {
     await page.setViewportSize({ width, height: 900 });
     const dimensions = await page.evaluate(() => ({
       clientWidth: document.documentElement.clientWidth,
@@ -286,6 +306,69 @@ test("Japanese UI has no horizontal page overflow", async ({ page }) => {
       dimensions.clientWidth,
     );
   }
+});
+
+test("keeps intermediate-width sections in a coherent reading order", async ({
+  page,
+}) => {
+  const readLayout = () =>
+    page.evaluate(() => {
+      const rect = (selector: string) => {
+        const element = document.querySelector(selector);
+        if (!element) throw new Error(`Missing ${selector}`);
+        const box = element.getBoundingClientRect();
+        return {
+          x: Math.round(box.x),
+          y: Math.round(box.y),
+          width: Math.round(box.width),
+          height: Math.round(box.height),
+        };
+      };
+
+      return {
+        header: rect(".app-header"),
+        cases: rect(".case-queue"),
+        main: rect(".reservation-workspace"),
+        review: rect(".review-panel"),
+      };
+    });
+
+  await page.setViewportSize({ width: 1024, height: 900 });
+  const wideTablet = await readLayout();
+  expect(wideTablet.header.height).toBe(88);
+  expect(wideTablet.cases).toMatchObject({ x: 0, width: 1024 });
+  expect(wideTablet.main.x).toBe(0);
+  expect(wideTablet.main.y).toBe(wideTablet.review.y);
+  expect(wideTablet.main.x + wideTablet.main.width).toBe(wideTablet.review.x);
+  expect(wideTablet.review.width).toBeGreaterThanOrEqual(320);
+
+  for (const width of [1023, 900, 768]) {
+    await page.setViewportSize({ width, height: 900 });
+    const stackedTablet = await readLayout();
+    expect(stackedTablet.header.height, `header at ${width}px`).toBe(88);
+    expect(stackedTablet.cases, `cases at ${width}px`).toMatchObject({
+      x: 0,
+      width,
+    });
+    expect(stackedTablet.main, `main at ${width}px`).toMatchObject({
+      x: 0,
+      width,
+    });
+    expect(stackedTablet.review, `review at ${width}px`).toMatchObject({
+      x: 0,
+      width,
+    });
+    expect(stackedTablet.review.y).toBe(
+      stackedTablet.main.y + stackedTablet.main.height,
+    );
+  }
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const desktop = await readLayout();
+  expect(desktop.cases.y).toBe(desktop.main.y);
+  expect(desktop.main.y).toBe(desktop.review.y);
+  expect(desktop.cases.x + desktop.cases.width).toBe(desktop.main.x);
+  expect(desktop.main.x + desktop.main.width).toBe(desktop.review.x);
 });
 
 test("recovers safely from malformed saved state", async ({ page }) => {
