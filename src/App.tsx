@@ -27,7 +27,6 @@ import { registerWebMcpTools } from "./webmcp";
 import {
   AGENT_DRAFT_BOUNDARY,
   createPublishedJourney,
-  createTeachingJourney,
   draftIsPublishable,
   draftPlaybook,
   isTeachingJourney,
@@ -58,7 +57,7 @@ import {
 
 const STORAGE_KEY = "teachback-demo-v1";
 const LOCALE_STORAGE_KEY = "teachback-ui-locale-v1";
-const TEACHING_STORAGE_KEY = "teachback-teaching-v1";
+const TEACHING_STORAGE_KEY = "teachback-teaching-v2";
 
 type WebMcpStatus = "checking" | "ready" | "unavailable" | "error";
 
@@ -289,7 +288,7 @@ function loadState(): AppState {
 function loadTeachingJourney(): TeachingJourney {
   try {
     const value = localStorage.getItem(TEACHING_STORAGE_KEY);
-    if (!value) return createTeachingJourney();
+    if (!value) return createPublishedJourney();
     const parsed: unknown = JSON.parse(value);
     if (isTeachingJourney(parsed)) return parsed;
     localStorage.removeItem(TEACHING_STORAGE_KEY);
@@ -300,7 +299,7 @@ function loadTeachingJourney(): TeachingJourney {
       // The in-memory teaching journey remains usable when storage is unavailable.
     }
   }
-  return createTeachingJourney();
+  return createPublishedJourney();
 }
 
 type StateAction = { type: "replace"; state: AppState };
@@ -1458,9 +1457,9 @@ export default function App() {
       // The in-memory reset still works when storage is unavailable.
     }
     replaceState(resetDemo(), "Demo reset.");
-    const teaching = createTeachingJourney();
-    journeyRef.current = teaching;
-    setJourney(teaching);
+    const published = createPublishedJourney();
+    journeyRef.current = published;
+    setJourney(published);
   }, [replaceState]);
 
   const createDraft = useCallback(() => {
