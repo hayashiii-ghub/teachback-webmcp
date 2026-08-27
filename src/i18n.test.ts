@@ -19,7 +19,9 @@ describe("Teachback UI localization", () => {
       "一度教える。任せる範囲を決める。安心して繰り返す。",
     );
     expect(copy.eligibility).toHaveLength(7);
-    expect(caseLabel("ja", "Needs review")).toBe("要確認");
+    expect(caseLabel("ja", "Recorded")).toBe("教えた例");
+    expect(caseLabel("ja", "Needs review")).toBe("確認前");
+    expect(caseLabel("ja", "Resolved")).toBe("再利用済み");
     expect(statusLabel("ja", "confirmed")).toBe("確定");
     expect(fieldLabel("ja", "Guest message")).toBe(
       "ゲスト向け文面（英語・原文）",
@@ -27,6 +29,10 @@ describe("Teachback UI localization", () => {
     expect(valueLabel("ja", "Meal", "Late meal box")).toBe(
       "遅い到着向けのお食事",
     );
+    expect(copy.playbookFlow).toBe("Teachbackの流れ");
+    expect(copy.criteriaPending).toBe("未判定");
+    expect(copy.webMcpReady).toBe("利用可能 · 3ツール");
+    expect(copy.approvalValidUntil).toBe("有効期限");
   });
 
   it("keeps exact guest-facing and handoff content unchanged", () => {

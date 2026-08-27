@@ -7,7 +7,12 @@ import {
   type MouseEvent as ReactMouseEvent,
   type RefObject,
 } from "react";
-import type { AppState, PreparedRun, Reservation } from "./domain";
+import {
+  SOURCE_RESERVATION_ID,
+  type AppState,
+  type PreparedRun,
+  type Reservation,
+} from "./domain";
 import { createInitialState } from "./fixtures";
 import {
   approveCurrentRun,
@@ -40,6 +45,30 @@ import {
 
 const STORAGE_KEY = "teachback-demo-v1";
 const LOCALE_STORAGE_KEY = "teachback-ui-locale-v1";
+
+type WebMcpStatus = "checking" | "ready" | "unavailable" | "error";
+
+const FAILED_CRITERION_BY_REASON: Record<string, number> = {
+  "Only confirmed reservations can use this playbook.": 0,
+  "Only same-day arrivals can use this playbook.": 1,
+  "The guest has already checked in.": 2,
+  "Arrival is later than 22:00.": 3,
+  "A new dietary request requires human review.": 4,
+  "Transportation arrangements are outside this playbook.": 5,
+  "Compensation requests are outside this playbook.": 6,
+};
+
+function formatFacilityTime(locale: UiLocale, value: string): string {
+  return new Date(value).toLocaleTimeString(
+    locale === "ja" ? "ja-JP" : "en-US",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Tokyo",
+    },
+  );
+}
 
 function loadLocale(): UiLocale {
   try {
@@ -163,17 +192,36 @@ function isAppState(value: unknown): value is AppState {
   const reservationIds = new Set(
     value.reservations.map((reservation) => reservation.id),
   );
+  const reservationIdsAreUnique =
+    reservationIds.size === value.reservations.length;
+  const sourceReservations = value.reservations.filter(
+    (reservation) => reservation.id === SOURCE_RESERVATION_ID,
+  );
+  const sourceReservationIsValid =
+    sourceReservations.length === 1 &&
+    sourceReservations[0].label === "Recorded" &&
+    value.reservations.every(
+      (reservation) =>
+        reservation.id === SOURCE_RESERVATION_ID ||
+        reservation.label !== "Recorded",
+    );
   const activeRunIsValid =
     value.activeRun === null ||
     (isPreparedRun(value.activeRun) &&
-      reservationIds.has(value.activeRun.reservationId));
+      reservationIds.has(value.activeRun.reservationId) &&
+      value.activeRun.reservationId === value.selectedReservationId &&
+      value.activeRun.reservationId !== SOURCE_RESERVATION_ID);
   const rejectionIsValid =
     value.rejection === null ||
     (isRecord(value.rejection) &&
       typeof value.rejection.reservationId === "string" &&
       reservationIds.has(value.rejection.reservationId) &&
+      value.rejection.reservationId === value.selectedReservationId &&
       Array.isArray(value.rejection.reasons) &&
+      value.rejection.reasons.length > 0 &&
       value.rejection.reasons.every((reason) => typeof reason === "string"));
+  const executionStateIsExclusive =
+    value.activeRun === null || value.rejection === null;
   const auditIsValid = value.audit.every(
     (event) =>
       isRecord(event) &&
@@ -184,9 +232,12 @@ function isAppState(value: unknown): value is AppState {
   );
 
   return (
+    reservationIdsAreUnique &&
+    sourceReservationIsValid &&
     reservationIds.has(value.selectedReservationId) &&
     activeRunIsValid &&
     rejectionIsValid &&
+    executionStateIsExclusive &&
     auditIsValid
   );
 }
@@ -236,12 +287,16 @@ function AppHeader({
         <span className="origin-mark" lang="en">
           Built in Japan
         </span>
-        <div className="language-switch" role="group" aria-label={copy.language}>
+        <div
+          className="language-switch"
+          role="group"
+          aria-label={copy.language}
+        >
           <button
             className={locale === "en" ? "is-active" : undefined}
             type="button"
             aria-pressed={locale === "en"}
-            aria-label={copy.switchToEnglish}
+            aria-label={copy.englishLanguage}
             onClick={() => onLocaleChange("en")}
           >
             EN
@@ -250,7 +305,7 @@ function AppHeader({
             className={locale === "ja" ? "is-active" : undefined}
             type="button"
             aria-pressed={locale === "ja"}
-            aria-label={copy.switchToJapanese}
+            aria-label={copy.japaneseLanguage}
             onClick={() => onLocaleChange("ja")}
           >
             日本語
@@ -268,11 +323,13 @@ function CaseQueue({
   locale,
   reservations,
   selectedId,
+  activeRun,
   onSelect,
 }: {
   locale: UiLocale;
   reservations: Reservation[];
   selectedId: string;
+  activeRun: PreparedRun | null;
   onSelect(id: string): void;
 }) {
   const copy = copyFor(locale);
@@ -283,6 +340,16 @@ function CaseQueue({
       <ul className="case-list">
         {reservations.map((reservation) => {
           const selected = reservation.id === selectedId;
+          const runForReservation =
+            activeRun?.reservationId === reservation.id ? activeRun : null;
+          const stateLabel =
+            runForReservation?.status === "awaiting_review"
+              ? copy.caseAwaitingApproval
+              : runForReservation?.status === "approved"
+                ? copy.caseReadyToCommit
+                : runForReservation?.status === "stale"
+                  ? copy.caseApprovalExpired
+                  : caseLabel(locale, reservation.label);
           return (
             <li key={reservation.id}>
               <button
@@ -296,7 +363,7 @@ function CaseQueue({
                   <span>{reservation.guestDisplayName}</span>
                 </span>
                 <span className="case-secondary">
-                  {caseLabel(locale, reservation.label)}
+                  {stateLabel}
                 </span>
                 <CaretRightIcon className="case-caret" />
               </button>
@@ -305,6 +372,43 @@ function CaseQueue({
         })}
       </ul>
     </nav>
+  );
+}
+
+function PlaybookFlow({
+  locale,
+  sourceReservation,
+  currentReservation,
+}: {
+  locale: UiLocale;
+  sourceReservation: Reservation;
+  currentReservation: Reservation;
+}) {
+  const copy = copyFor(locale);
+  const viewingSource = sourceReservation.id === currentReservation.id;
+
+  return (
+    <section className="playbook-flow" aria-label={copy.playbookFlow}>
+      <div className="playbook-flow-step">
+        <span>{copy.taughtFrom}</span>
+        <strong>
+          {sourceReservation.id} · {sourceReservation.guestDisplayName}
+        </strong>
+      </div>
+      <ArrowRightIcon className="playbook-flow-arrow" />
+      <div className="playbook-flow-step is-playbook">
+        <span>{copy.boundedPlaybook}</span>
+        <strong lang="en">{copy.playbookName}</strong>
+        <small>{copy.playbookBoundarySummary}</small>
+      </div>
+      <ArrowRightIcon className="playbook-flow-arrow" />
+      <div className="playbook-flow-step is-current">
+        <span>{viewingSource ? copy.viewingSource : copy.reusingFor}</span>
+        <strong>
+          {currentReservation.id} · {currentReservation.guestDisplayName}
+        </strong>
+      </div>
+    </section>
   );
 }
 
@@ -337,22 +441,25 @@ function ReservationFacts({
   );
 }
 
-function EmptyWorkspace({
-  locale,
-  onPrepare,
-}: {
-  locale: UiLocale;
-  onPrepare(): void;
-}) {
+function EmptyWorkspace({ locale }: { locale: UiLocale }) {
   const copy = copyFor(locale);
 
   return (
     <section className="empty-workspace" aria-labelledby="ready-heading">
       <h2 id="ready-heading">{copy.readyHeading}</h2>
       <p>{copy.readyBody}</p>
-      <button className="secondary-action" type="button" onClick={onPrepare}>
-        {copy.prepareLocally}
-      </button>
+    </section>
+  );
+}
+
+function RecordedWorkspace({ locale }: { locale: UiLocale }) {
+  const copy = copyFor(locale);
+
+  return (
+    <section className="recorded-workspace" aria-labelledby="recorded-heading">
+      <span className="recorded-kicker">{copy.sourceCaseLabel}</span>
+      <h2 id="recorded-heading">{copy.recordedHeading}</h2>
+      <p>{copy.recordedBody}</p>
     </section>
   );
 }
@@ -445,16 +552,18 @@ function RejectedResult({
 
 function ReservationWorkspace({
   locale,
+  sourceReservation,
+  isSourceCase,
   reservation,
   run,
   rejectionReasons,
-  onPrepare,
 }: {
   locale: UiLocale;
+  sourceReservation: Reservation;
+  isSourceCase: boolean;
   reservation: Reservation;
   run: PreparedRun | null;
   rejectionReasons: string[] | null;
-  onPrepare(): void;
 }) {
   const copy = copyFor(locale);
 
@@ -475,20 +584,116 @@ function ReservationWorkspace({
             : reservation.arrivalDate}
         </strong>
       </div>
+      <PlaybookFlow
+        locale={locale}
+        sourceReservation={sourceReservation}
+        currentReservation={reservation}
+      />
       <ReservationFacts locale={locale} reservation={reservation} />
-      {rejectionReasons ? (
+      {isSourceCase ? (
+        <RecordedWorkspace locale={locale} />
+      ) : rejectionReasons ? (
         <RejectedResult locale={locale} reasons={rejectionReasons} />
       ) : run && run.status !== "discarded" ? (
         <ProposedChanges locale={locale} run={run} />
       ) : (
-        <EmptyWorkspace locale={locale} onPrepare={onPrepare} />
+        <EmptyWorkspace locale={locale} />
       )}
     </main>
   );
 }
 
+function WebMcpAvailability({
+  locale,
+  status,
+}: {
+  locale: UiLocale;
+  status: WebMcpStatus;
+}) {
+  const copy = copyFor(locale);
+  const details = {
+    checking: {
+      label: copy.webMcpChecking,
+      description: copy.webMcpCheckingDetail,
+    },
+    ready: {
+      label: copy.webMcpReady,
+      description: copy.webMcpReadyDetail,
+    },
+    unavailable: {
+      label: copy.webMcpUnavailable,
+      description: copy.webMcpUnavailableDetail,
+    },
+    error: {
+      label: copy.webMcpError,
+      description: copy.webMcpErrorDetail,
+    },
+  }[status];
+
+  return (
+    <div
+      className={`webmcp-availability is-${status}`}
+      role="status"
+      aria-atomic="true"
+    >
+      <span className="webmcp-status-dot" aria-hidden="true" />
+      <div>
+        <span className="webmcp-label">{copy.webMcpTools}</span>
+        <strong>{details.label}</strong>
+        <p>{details.description}</p>
+      </div>
+    </div>
+  );
+}
+
+function ApprovalStatus({
+  locale,
+  run,
+  webMcpStatus,
+}: {
+  locale: UiLocale;
+  run: PreparedRun;
+  webMcpStatus: WebMcpStatus;
+}) {
+  const copy = copyFor(locale);
+  const expiresAt = run.approvalExpiresAt;
+  const validExpiry =
+    typeof expiresAt === "string" && Number.isFinite(Date.parse(expiresAt));
+
+  if (!validExpiry) {
+    return <div className="expired-status">{copy.approvalExpired}</div>;
+  }
+
+  return (
+    <div className="approval-status-card">
+      <div className="approval-status-title">
+        <CheckIcon className="approval-status-icon" />
+        <div>
+          <span>{copy.approvedReady}</span>
+          <strong>
+            {webMcpStatus === "ready"
+              ? copy.approvedWithWebMcp
+              : copy.approvedWithoutWebMcp}
+          </strong>
+        </div>
+      </div>
+      {validExpiry ? (
+        <div className="approval-expiry">
+          <span>{copy.approvalValidUntil}</span>
+          <time dateTime={expiresAt}>
+            {formatFacilityTime(locale, expiresAt)} {copy.approvalTimeZone}
+          </time>
+        </div>
+      ) : null}
+      <p>{copy.approvalExactOnly}</p>
+    </div>
+  );
+}
+
 function ReviewPanel({
   locale,
+  isSourceCase,
+  webMcpStatus,
   run,
   rejectionReasons,
   onPrepare,
@@ -497,6 +702,8 @@ function ReviewPanel({
   onAudit,
 }: {
   locale: UiLocale;
+  isSourceCase: boolean;
+  webMcpStatus: WebMcpStatus;
   run: PreparedRun | null;
   rejectionReasons: string[] | null;
   onPrepare(): void;
@@ -509,61 +716,149 @@ function ReviewPanel({
   const isApproved = run?.status === "approved";
   const isCommitted = run?.status === "committed";
   const isStale = run?.status === "stale";
+  const isDiscarded = run?.status === "discarded";
   const isRejected = Boolean(rejectionReasons);
+  const criteriaPassed = Boolean(run && !isDiscarded);
+  const showCriteriaSummary = isApproved || isCommitted || isStale;
+  const failedCriteria = new Set<number>();
+  rejectionReasons?.forEach((reason) => {
+    const index = FAILED_CRITERION_BY_REASON[reason];
+    if (index !== undefined) failedCriteria.add(index);
+  });
 
   return (
     <aside className="review-panel" aria-labelledby="review-heading">
-      <h2 id="review-heading">{copy.review}</h2>
-      {!isRejected ? (
+      <div className="review-heading-row">
+        <h2 id="review-heading">{copy.review}</h2>
+        {!isSourceCase ? (
+          <span
+            className={`criteria-state${
+              isRejected
+                ? " is-refused"
+                : criteriaPassed
+                  ? " is-passed"
+                  : ""
+            }`}
+          >
+            {isRejected
+              ? copy.criteriaRefused
+              : criteriaPassed
+                ? copy.criteriaPassed
+                : copy.criteriaPending}
+          </span>
+        ) : null}
+      </div>
+      <WebMcpAvailability locale={locale} status={webMcpStatus} />
+      {isSourceCase ? (
+        <div className="source-case-note">
+          <strong>{copy.sourceCaseLabel}</strong>
+          <p>{copy.sourceCaseBody}</p>
+        </div>
+      ) : isRejected ? (
+        <>
+          <ul className="eligibility-list" id="approval-criteria">
+            {copy.eligibility.map((item, index) => {
+              const failed = failedCriteria.has(index);
+              return (
+                <li className={failed ? "is-failed" : "is-passed"} key={item}>
+                  {failed ? (
+                    <CloseIcon className="criterion-fail-icon" />
+                  ) : (
+                    <CheckIcon className="check-icon" />
+                  )}
+                  <span>{item}</span>
+                  <span className="sr-only">
+                    {failed ? copy.criterionRefused : copy.criterionPassed}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="review-rejected">
+            <CloseIcon className="rejected-icon" />
+            <strong>{copy.outsideBoundary}</strong>
+            <p>{copy.refusedPreparation}</p>
+          </div>
+        </>
+      ) : showCriteriaSummary ? (
+        <div className="criteria-complete-summary">
+          <CheckIcon className="check-icon" />
+          <strong>{copy.criteriaAllPassed}</strong>
+        </div>
+      ) : (
         <ul className="eligibility-list" id="approval-criteria">
           {copy.eligibility.map((item) => (
-            <li key={item}>
-              <CheckIcon className="check-icon" />
+            <li className={criteriaPassed ? "is-passed" : "is-pending"} key={item}>
+              {criteriaPassed ? (
+                <CheckIcon className="check-icon" />
+              ) : (
+                <span className="pending-icon" aria-hidden="true" />
+              )}
               <span>{item}</span>
+              <span className="sr-only">
+                {criteriaPassed ? copy.criterionPassed : copy.criterionPending}
+              </span>
             </li>
           ))}
         </ul>
-      ) : (
-        <div className="review-rejected">
-          <CloseIcon className="rejected-icon" />
-          <strong>{copy.outsideBoundary}</strong>
-          <p>{copy.refusedPreparation}</p>
-        </div>
       )}
-      <div className="approval-step" aria-hidden="true">
-        <span />
-      </div>
+      {!isSourceCase && !isRejected ? (
+        <div className="approval-step" aria-hidden="true">
+          <span />
+        </div>
+      ) : null}
       <div className="review-actions">
-        {!run && !isRejected ? (
-          <button className="primary-action" type="button" onClick={onPrepare}>
-            {copy.preparePreview}
-          </button>
-        ) : isAwaiting ? (
-          <button
-            className="primary-action"
-            type="button"
-            onClick={onApprove}
-            aria-describedby="approval-criteria changes-heading"
-          >
-            {copy.approvePreview}
-          </button>
-        ) : isApproved ? (
-          <button className="primary-action is-approved" type="button" disabled>
-            {copy.approvedReady}
-          </button>
-        ) : isCommitted ? (
-          <button className="primary-action is-approved" type="button" disabled>
-            {copy.committed}
-          </button>
-        ) : isStale ? (
-          <button className="primary-action" type="button" onClick={onPrepare}>
-            {copy.prepareAgain}
-          </button>
-        ) : null}
-        {run && !isCommitted && run.status !== "discarded" ? (
-          <button className="secondary-action" type="button" onClick={onDiscard}>
-            {copy.discard}
-          </button>
+        {!isSourceCase && !isRejected ? (
+          <>
+            {(!run || isDiscarded) ? (
+              <button className="primary-action" type="button" onClick={onPrepare}>
+                {copy.preparePreview}
+              </button>
+            ) : isAwaiting ? (
+              <button
+                className="primary-action"
+                type="button"
+                onClick={onApprove}
+                aria-describedby="approval-criteria changes-heading"
+              >
+                {copy.approvePreview}
+              </button>
+            ) : isApproved && run ? (
+              <ApprovalStatus
+                locale={locale}
+                run={run}
+                webMcpStatus={webMcpStatus}
+              />
+            ) : isCommitted ? (
+              <div className="completion-status">
+                <CheckIcon className="approval-status-icon" />
+                <div>
+                  <strong>{copy.committed}</strong>
+                  <p>{copy.applied}</p>
+                </div>
+              </div>
+            ) : isStale ? (
+              <>
+                <div className="expired-status">{copy.approvalExpired}</div>
+                <button
+                  className="primary-action"
+                  type="button"
+                  onClick={onPrepare}
+                >
+                  {copy.prepareAgain}
+                </button>
+              </>
+            ) : null}
+            {run && !isCommitted && run.status !== "discarded" ? (
+              <button
+                className="secondary-action"
+                type="button"
+                onClick={onDiscard}
+              >
+                {copy.discard}
+              </button>
+            ) : null}
+          </>
         ) : null}
         <button className="text-button audit-link" type="button" onClick={onAudit}>
           {copy.viewAudit}
@@ -692,11 +987,17 @@ function AuditDrawer({
 export default function App() {
   const [state, dispatch] = useReducer(stateReducer, undefined, loadState);
   const stateRef = useRef(state);
-  const [locale, setLocale] = useState<UiLocale>(loadLocale);
+  const [locale, setLocale] = useState<UiLocale>(() => {
+    const initialLocale = loadLocale();
+    document.documentElement.lang = initialLocale;
+    return initialLocale;
+  });
   const localeRef = useRef(locale);
   const [announcement, setAnnouncement] = useState(() =>
     systemMessageLabel(locale, "Teachback demo ready."),
   );
+  const [webMcpStatus, setWebMcpStatus] =
+    useState<WebMcpStatus>("checking");
   const [auditOpen, setAuditOpen] = useState(false);
   const appContentRef = useRef<HTMLDivElement>(null);
   const auditTriggerRef = useRef<HTMLButtonElement>(null);
@@ -743,22 +1044,23 @@ export default function App() {
   useEffect(() => {
     let controller: AbortController | null = null;
     let cancelled = false;
+    setWebMcpStatus("checking");
     registerWebMcpTools({
       getState: () => stateRef.current,
       commitState,
     })
       .then((registeredController) => {
-        if (cancelled) registeredController?.abort();
-        else controller = registeredController;
+        if (cancelled) {
+          registeredController?.abort();
+          return;
+        }
+        controller = registeredController;
+        setWebMcpStatus(registeredController ? "ready" : "unavailable");
       })
-      .catch(() =>
-        setAnnouncement(
-          systemMessageLabel(
-            localeRef.current,
-            "WebMCP tools could not be registered.",
-          ),
-        ),
-      );
+      .catch(() => {
+        if (cancelled) return;
+        setWebMcpStatus("error");
+      });
 
     return () => {
       cancelled = true;
@@ -766,13 +1068,15 @@ export default function App() {
     };
   }, [commitState]);
 
+  const approvedRunId =
+    state.activeRun?.status === "approved" ? state.activeRun.id : null;
   const approvalExpiresAt =
     state.activeRun?.status === "approved" && state.activeRun.approvalExpiresAt
       ? Date.parse(state.activeRun.approvalExpiresAt)
       : Number.NaN;
 
   useEffect(() => {
-    if (!Number.isFinite(approvalExpiresAt)) return;
+    if (!approvedRunId) return;
 
     const markExpired = () => {
       const current = stateRef.current;
@@ -781,12 +1085,19 @@ export default function App() {
         commitState(current, expired, "Approval expired. Prepare a new preview.");
       }
     };
-    const delay = Math.max(0, approvalExpiresAt - Date.now());
+    const delay = Number.isFinite(approvalExpiresAt)
+      ? Math.max(0, approvalExpiresAt - Date.now())
+      : 0;
     const timer = window.setTimeout(markExpired, delay + 25);
     return () => window.clearTimeout(timer);
-  }, [approvalExpiresAt, commitState]);
+  }, [approvedRunId, approvalExpiresAt, commitState]);
 
   const reservation = selectedReservation(state);
+  const sourceReservation =
+    state.reservations.find(
+      (candidate) => candidate.id === SOURCE_RESERVATION_ID,
+    ) ?? state.reservations[0];
+  const isSourceCase = reservation.id === SOURCE_RESERVATION_ID;
   const visibleRun =
     state.activeRun?.reservationId === reservation.id ? state.activeRun : null;
   const rejectionReasons =
@@ -844,13 +1155,10 @@ export default function App() {
   );
   const closeAudit = useCallback(() => setAuditOpen(false), []);
   const changeLocale = useCallback((nextLocale: UiLocale) => {
+    if (localeRef.current === nextLocale) return;
     localeRef.current = nextLocale;
+    document.documentElement.lang = nextLocale;
     setLocale(nextLocale);
-    setAnnouncement(
-      nextLocale === "ja"
-        ? "表示言語を日本語に切り替えました。"
-        : "Display language changed to English.",
-    );
   }, []);
 
   return (
@@ -866,17 +1174,21 @@ export default function App() {
             locale={locale}
             reservations={state.reservations}
             selectedId={state.selectedReservationId}
+            activeRun={state.activeRun}
             onSelect={select}
           />
           <ReservationWorkspace
             locale={locale}
+            sourceReservation={sourceReservation}
+            isSourceCase={isSourceCase}
             reservation={reservation}
             run={visibleRun}
             rejectionReasons={rejectionReasons}
-            onPrepare={prepare}
           />
           <ReviewPanel
             locale={locale}
+            isSourceCase={isSourceCase}
+            webMcpStatus={webMcpStatus}
             run={visibleRun}
             rejectionReasons={rejectionReasons}
             onPrepare={prepare}

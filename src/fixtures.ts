@@ -1,8 +1,13 @@
-import { DEMO_DATE, type AppState, type Reservation } from "./domain";
+import {
+  DEMO_DATE,
+  SOURCE_RESERVATION_ID,
+  type AppState,
+  type Reservation,
+} from "./domain";
 
 export const reservationFixtures: Reservation[] = [
   {
-    id: "R-2041",
+    id: SOURCE_RESERVATION_ID,
     guestDisplayName: "Aiko Tanaka",
     status: "confirmed",
     arrivalDate: DEMO_DATE,

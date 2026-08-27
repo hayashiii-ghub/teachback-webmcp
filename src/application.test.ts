@@ -35,6 +35,7 @@ describe("Late Arrival Care run", () => {
     expect(prepared.result.reasons).toContain(
       "This case already has late-arrival handling.",
     );
+    expect(prepared.state).toBe(selected);
   });
 
   it("rejects an unsafe case with every applicable reason", async () => {
@@ -59,6 +60,38 @@ describe("Late Arrival Care run", () => {
     });
 
     expect(committed.result.code).toBe("RUN_NOT_APPROVED");
+  });
+
+  it("does not approve a preview when a refusal is also present", async () => {
+    const prepared = await prepareCurrentRun(createInitialState());
+    const conflicting = {
+      ...prepared.state,
+      rejection: {
+        reservationId: "R-2048",
+        reasons: ["Arrival is later than 22:00."],
+      },
+    };
+
+    expect(approveCurrentRun(conflicting).result.code).toBe("RUN_NOT_REVIEWABLE");
+  });
+
+  it("does not commit an approved run when a refusal is also present", async () => {
+    const prepared = await prepareCurrentRun(createInitialState());
+    const approved = approveCurrentRun(prepared.state);
+    const run = approved.state.activeRun!;
+    const conflicting = {
+      ...approved.state,
+      rejection: {
+        reservationId: "R-2048",
+        reasons: ["Arrival is later than 22:00."],
+      },
+    };
+    const committed = await commitApprovedRun(conflicting, {
+      runId: run.id,
+      expectedDigest: run.digest,
+    });
+
+    expect(committed.result.code).toBe("RUN_CONFLICTING_STATE");
   });
 
   it("commits exactly the approved digest", async () => {

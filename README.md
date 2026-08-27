@@ -63,6 +63,12 @@ state. Switching the UI never changes a prepared run or approval digest. WebMCP
 tool names, schemas, result codes, and JSON keys remain stable in English; exact
 guest-facing copy remains visible in its source language for approval.
 
+The UI also makes the demo lineage explicit: the handled `R-2041` reservation
+taught `Late Arrival Care`, whose human-set boundary is then checked before it is
+reused on another reservation. Conditions remain visibly unevaluated until a
+preview is prepared. After approval, the page shows the absolute approval expiry
+in JST and whether all three WebMCP tools are available in the current browser.
+
 ## License
 
 MIT

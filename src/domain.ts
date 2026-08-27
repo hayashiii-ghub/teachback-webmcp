@@ -1,4 +1,5 @@
 export const DEMO_DATE = "2026-08-27";
+export const SOURCE_RESERVATION_ID = "R-2041";
 
 export type ReservationStatus = "confirmed" | "checked_in" | "cancelled";
 export type MealService = "regular_dinner" | "late_meal_box" | "none";

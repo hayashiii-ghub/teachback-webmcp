@@ -1,5 +1,6 @@
 import {
   DEMO_DATE,
+  SOURCE_RESERVATION_ID,
   type AppState,
   type AuditEvent,
   type PreparedRun,
@@ -172,6 +173,19 @@ export async function prepareCurrentRun(
   now = new Date(),
 ): Promise<{ state: AppState; result: ToolResult }> {
   const reservation = selectedReservation(state);
+
+  if (reservation.id === SOURCE_RESERVATION_ID) {
+    return {
+      state,
+      result: {
+        ok: false,
+        code: "PLAYBOOK_NOT_APPLICABLE",
+        summary: "The teaching source cannot start a new run.",
+        reasons: ["This case already has late-arrival handling."],
+      },
+    };
+  }
+
   const reasons = eligibilityReasons(reservation);
 
   if (reasons.length > 0) {
@@ -254,7 +268,13 @@ export function approveCurrentRun(
   now = new Date(),
 ): { state: AppState; result: ToolResult } {
   const run = state.activeRun;
-  if (!run || run.status !== "awaiting_review") {
+  if (
+    !run ||
+    run.status !== "awaiting_review" ||
+    state.rejection !== null ||
+    run.reservationId === SOURCE_RESERVATION_ID ||
+    state.selectedReservationId !== run.reservationId
+  ) {
     return {
       state,
       result: {
@@ -340,6 +360,17 @@ export async function commitApprovedRun(
 
   if (!run || run.id !== input.runId) {
     return failure(state, "RUN_NOT_FOUND", "The prepared run was not found.");
+  }
+  if (
+    state.rejection !== null ||
+    run.reservationId === SOURCE_RESERVATION_ID ||
+    state.selectedReservationId !== run.reservationId
+  ) {
+    return failure(
+      state,
+      "RUN_CONFLICTING_STATE",
+      "The run conflicts with the current case state.",
+    );
   }
   if (run.status === "committed") {
     return failure(state, "RUN_ALREADY_COMMITTED", "This run was already committed.");
