@@ -1,0 +1,62 @@
+import { describe, expect, it } from "vitest";
+import {
+  AGENT_DRAFT_BOUNDARY,
+  createPublishedJourney,
+  createTeachingJourney,
+  draftIsPublishable,
+  draftPlaybook,
+  isTeachingJourney,
+  publishPlaybook,
+  updateDraftBoundary,
+} from "./teaching";
+
+describe("Teachback teaching journey", () => {
+  it("keeps an agent draft unpublished until a person tightens both boundaries", () => {
+    const drafted = draftPlaybook(
+      createTeachingJourney(),
+      AGENT_DRAFT_BOUNDARY,
+      new Date("2026-08-27T09:01:00.000Z"),
+    );
+
+    expect(drafted.result.code).toBe("PLAYBOOK_DRAFTED");
+    expect(draftIsPublishable(drafted.state)).toBe(false);
+    expect(publishPlaybook(drafted.state).result.code).toBe(
+      "BOUNDARY_REVIEW_REQUIRED",
+    );
+
+    const bounded = updateDraftBoundary(
+      drafted.state,
+      { latestArrivalLimit: "22:00", taxiHandling: "escalate" },
+      new Date("2026-08-27T09:02:00.000Z"),
+    );
+    expect(draftIsPublishable(bounded)).toBe(true);
+
+    const published = publishPlaybook(
+      bounded,
+      new Date("2026-08-27T09:03:00.000Z"),
+    );
+    expect(published.result.code).toBe("PLAYBOOK_PUBLISHED");
+    expect(published.state.stage).toBe("reuse");
+    expect(published.state.activity.map((event) => event.actor)).toEqual([
+      "Human",
+      "Agent",
+      "Human",
+      "Human",
+      "Human",
+    ]);
+  });
+
+  it("creates a reproducible published shortcut and rejects malformed storage", () => {
+    const published = createPublishedJourney(
+      new Date("2026-08-27T09:05:00.000Z"),
+    );
+    expect(isTeachingJourney(published)).toBe(true);
+    expect(published.publishedBoundary).toMatchObject({
+      latestArrivalLimit: "22:00",
+      taxiHandling: "escalate",
+    });
+    expect(
+      isTeachingJourney({ ...published, publishedBoundary: { approvalRequired: true } }),
+    ).toBe(false);
+  });
+});

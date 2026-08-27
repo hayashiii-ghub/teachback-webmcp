@@ -1,15 +1,26 @@
-import type { AppState, ToolResult } from "./domain";
+import type { AppState, PlaybookBoundary, ToolResult } from "./domain";
 import {
   commitApprovedRun,
   currentCaseResult,
   prepareCurrentRun,
 } from "./application";
+import {
+  DEMONSTRATED_ACTIONS,
+  draftPlaybook,
+  type TeachingJourney,
+} from "./teaching";
 
 export interface TeachbackService {
   getState(): AppState;
   commitState(
     expectedState: AppState,
     nextState: AppState,
+    announcement: string,
+  ): boolean;
+  getTeachingJourney(): TeachingJourney;
+  commitTeachingJourney(
+    expectedState: TeachingJourney,
+    nextState: TeachingJourney,
     announcement: string,
   ): boolean;
 }
@@ -20,6 +31,96 @@ function response(result: ToolResult): string {
 
 export function createWebMcpTools(service: TeachbackService): ModelContextTool[] {
   return [
+    {
+      name: "teachback_get_latest_demonstration",
+      title: "Get latest demonstration",
+      description:
+        "Read the four semantic actions demonstrated by a person on the synthetic teaching case.",
+      inputSchema: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+      annotations: { readOnlyHint: true, untrustedContentHint: true },
+      execute: (_input, options) => {
+        options?.signal?.throwIfAborted();
+        return response({
+          ok: true,
+          code: "DEMONSTRATION_FOUND",
+          summary: "Found 4 semantic actions demonstrated on R-2041.",
+          data: {
+            source_reservation_id: "R-2041",
+            actions: [...DEMONSTRATED_ACTIONS],
+            synthetic_demo_data: true,
+          },
+        });
+      },
+    },
+    {
+      name: "teachback_submit_playbook_draft",
+      title: "Submit playbook draft",
+      description:
+        "Submit a bounded draft from the latest demonstration for a person to review. This cannot publish or execute the playbook.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          latest_arrival_limit: {
+            type: "string",
+            enum: ["22:00", "23:00"],
+            description: "Proposed latest arrival handled by the playbook.",
+          },
+          taxi_handling: {
+            type: "string",
+            enum: ["allow", "escalate"],
+            description: "Whether taxi requests are handled or escalated.",
+          },
+        },
+        required: ["latest_arrival_limit", "taxi_handling"],
+        additionalProperties: false,
+      },
+      annotations: { readOnlyHint: false, untrustedContentHint: false },
+      execute: (input, options) => {
+        options?.signal?.throwIfAborted();
+        const candidate = input as {
+          latest_arrival_limit?: unknown;
+          taxi_handling?: unknown;
+        };
+        if (
+          !["22:00", "23:00"].includes(String(candidate.latest_arrival_limit)) ||
+          !["allow", "escalate"].includes(String(candidate.taxi_handling))
+        ) {
+          return response({
+            ok: false,
+            code: "INVALID_DRAFT",
+            summary: "The proposed boundary is outside the bounded draft schema.",
+          });
+        }
+        const boundary: PlaybookBoundary = {
+          latestArrivalLimit: candidate.latest_arrival_limit as "22:00" | "23:00",
+          taxiHandling: candidate.taxi_handling as "allow" | "escalate",
+          dietaryHandling: "escalate",
+          compensationHandling: "escalate",
+          approvalRequired: true,
+        };
+        const sourceState = service.getTeachingJourney();
+        const drafted = draftPlaybook(sourceState, boundary);
+        if (
+          drafted.state !== sourceState &&
+          !service.commitTeachingJourney(
+            sourceState,
+            drafted.state,
+            drafted.result.summary,
+          )
+        ) {
+          return response({
+            ok: false,
+            code: "STALE_CONTEXT",
+            summary: "The teaching journey changed while the draft was submitted.",
+          });
+        }
+        return response(drafted.result);
+      },
+    },
     {
       name: "teachback_get_current_case",
       title: "Get current case",
@@ -49,8 +150,20 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
       annotations: { readOnlyHint: false, untrustedContentHint: false },
       execute: async (_input, options) => {
         options?.signal?.throwIfAborted();
+        const teaching = service.getTeachingJourney();
+        if (teaching.stage !== "reuse" || !teaching.publishedBoundary) {
+          return response({
+            ok: false,
+            code: "PLAYBOOK_NOT_PUBLISHED",
+            summary: "A person must review and publish the playbook first.",
+          });
+        }
         const sourceState = service.getState();
-        const prepared = await prepareCurrentRun(sourceState);
+        const prepared = await prepareCurrentRun(
+          sourceState,
+          new Date(),
+          teaching.publishedBoundary,
+        );
         options?.signal?.throwIfAborted();
         if (
           !service.commitState(
@@ -107,7 +220,26 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
             summary: "run_id and expected_digest are required.",
           });
         }
+        const teaching = service.getTeachingJourney();
+        if (teaching.stage !== "reuse" || !teaching.publishedBoundary) {
+          return response({
+            ok: false,
+            code: "PLAYBOOK_NOT_PUBLISHED",
+            summary: "A person must review and publish the playbook first.",
+          });
+        }
         const sourceState = service.getState();
+        if (
+          sourceState.activeRun &&
+          JSON.stringify(sourceState.activeRun.playbookBoundary) !==
+            JSON.stringify(teaching.publishedBoundary)
+        ) {
+          return response({
+            ok: false,
+            code: "PUBLISHED_BOUNDARY_CHANGED",
+            summary: "The published playbook boundary changed after preparation.",
+          });
+        }
         const committed = await commitApprovedRun(sourceState, {
           runId: candidate.run_id,
           expectedDigest: candidate.expected_digest,

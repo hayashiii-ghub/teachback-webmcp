@@ -3,12 +3,14 @@ import {
   SOURCE_RESERVATION_ID,
   type AppState,
   type AuditEvent,
+  type PlaybookBoundary,
   type PreparedRun,
   type ProposedChange,
   type Reservation,
   type ToolResult,
 } from "./domain";
 import { createInitialState } from "./fixtures";
+import { SAFE_PUBLISHED_BOUNDARY } from "./teaching";
 
 const APPROVAL_TTL_MS = 5 * 60 * 1000;
 
@@ -56,7 +58,10 @@ export function selectReservation(state: AppState, reservationId: string): AppSt
   };
 }
 
-export function eligibilityReasons(reservation: Reservation): string[] {
+export function eligibilityReasons(
+  reservation: Reservation,
+  boundary: PlaybookBoundary = SAFE_PUBLISHED_BOUNDARY,
+): string[] {
   const reasons: string[] = [];
 
   if (reservation.status !== "confirmed") {
@@ -68,13 +73,13 @@ export function eligibilityReasons(reservation: Reservation): string[] {
   if (reservation.status === "checked_in") {
     reasons.push("The guest has already checked in.");
   }
-  if (reservation.requestedArrivalTime > "22:00") {
-    reasons.push("Arrival is later than 22:00.");
+  if (reservation.requestedArrivalTime > boundary.latestArrivalLimit) {
+    reasons.push(`Arrival is later than ${boundary.latestArrivalLimit}.`);
   }
   if (reservation.hasNewDietaryRequest) {
     reasons.push("A new dietary request requires human review.");
   }
-  if (reservation.requestsTaxi) {
+  if (reservation.requestsTaxi && boundary.taxiHandling === "escalate") {
     reasons.push("Transportation arrangements are outside this playbook.");
   }
   if (reservation.requestsCompensation) {
@@ -149,12 +154,14 @@ function digestPayload(
   before: Reservation,
   after: Reservation,
   proposedChanges: ProposedChange[],
+  boundary: PlaybookBoundary,
 ): string {
   return JSON.stringify({
     playbook: "late-arrival-care@1",
     reservationId: before.id,
     reservationVersion: before.version,
     requestedArrivalTime: before.requestedArrivalTime,
+    boundary,
     proposedChanges,
     after,
   });
@@ -164,13 +171,15 @@ async function computeRunDigest(
   before: Reservation,
   after: Reservation,
   proposedChanges: ProposedChange[],
+  boundary: PlaybookBoundary,
 ): Promise<string> {
-  return sha256(digestPayload(before, after, proposedChanges));
+  return sha256(digestPayload(before, after, proposedChanges, boundary));
 }
 
 export async function prepareCurrentRun(
   state: AppState,
   now = new Date(),
+  boundary: PlaybookBoundary = SAFE_PUBLISHED_BOUNDARY,
 ): Promise<{ state: AppState; result: ToolResult }> {
   const reservation = selectedReservation(state);
 
@@ -186,7 +195,7 @@ export async function prepareCurrentRun(
     };
   }
 
-  const reasons = eligibilityReasons(reservation);
+  const reasons = eligibilityReasons(reservation, boundary);
 
   if (reasons.length > 0) {
     return {
@@ -214,7 +223,12 @@ export async function prepareCurrentRun(
 
   const after = applyLateArrivalCare(reservation);
   const proposedChanges = changesFor(reservation, after);
-  const digest = await computeRunDigest(reservation, after, proposedChanges);
+  const digest = await computeRunDigest(
+    reservation,
+    after,
+    proposedChanges,
+    boundary,
+  );
   const run: PreparedRun = {
     id: crypto.randomUUID(),
     reservationId: reservation.id,
@@ -222,6 +236,7 @@ export async function prepareCurrentRun(
     before: structuredClone(reservation),
     after,
     proposedChanges,
+    playbookBoundary: structuredClone(boundary),
     digest,
     status: "awaiting_review",
     approvedDigest: null,
@@ -413,11 +428,29 @@ export async function commitApprovedRun(
     );
   }
 
+  if (eligibilityReasons(current, run.playbookBoundary).length > 0) {
+    return failure(
+      state,
+      "CASE_NO_LONGER_ELIGIBLE",
+      "The reservation no longer matches the published playbook boundary.",
+    );
+  }
+
   const canonicalAfter = applyLateArrivalCare(current);
   const canonicalChanges = changesFor(current, canonicalAfter);
   const [storedPayloadDigest, canonicalDigest] = await Promise.all([
-    computeRunDigest(run.before, run.after, run.proposedChanges),
-    computeRunDigest(current, canonicalAfter, canonicalChanges),
+    computeRunDigest(
+      run.before,
+      run.after,
+      run.proposedChanges,
+      run.playbookBoundary,
+    ),
+    computeRunDigest(
+      current,
+      canonicalAfter,
+      canonicalChanges,
+      run.playbookBoundary,
+    ),
   ]);
   if (
     storedPayloadDigest !== run.digest ||

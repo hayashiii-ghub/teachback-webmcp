@@ -30,9 +30,11 @@ describe("Teachback UI localization", () => {
     );
     expect(copy.playbookFlow).toBe("Teachbackの流れ");
     expect(copy.criteriaPending).toBe("未判定");
-    expect(copy.webMcpReady).toBe("利用可能 · 3ツール");
+    expect(copy.webMcpReady).toBe("利用可能 · 5ツール");
     expect(copy.approvalValidUntil).toBe("有効期限");
     expect(copy.demoDataNotice).toContain("合成データ");
+    expect(copy.teachingHeadline).toContain("Agentが手順を草案化");
+    expect(copy.demonstrationActionLabels).toHaveLength(4);
   });
 
   it("keeps exact guest-facing and handoff content unchanged", () => {

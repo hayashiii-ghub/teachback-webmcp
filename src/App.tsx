@@ -25,6 +25,18 @@ import {
 } from "./application";
 import { registerWebMcpTools } from "./webmcp";
 import {
+  AGENT_DRAFT_BOUNDARY,
+  createPublishedJourney,
+  createTeachingJourney,
+  draftIsPublishable,
+  draftPlaybook,
+  isTeachingJourney,
+  publishPlaybook,
+  teachingAuditEvents,
+  updateDraftBoundary,
+  type TeachingJourney,
+} from "./teaching";
+import {
   ArrowRightIcon,
   CaretRightIcon,
   CheckIcon,
@@ -46,6 +58,7 @@ import {
 
 const STORAGE_KEY = "teachback-demo-v1";
 const LOCALE_STORAGE_KEY = "teachback-ui-locale-v1";
+const TEACHING_STORAGE_KEY = "teachback-teaching-v1";
 
 type WebMcpStatus = "checking" | "ready" | "unavailable" | "error";
 
@@ -154,6 +167,17 @@ function isPreparedRun(value: unknown): value is PreparedRun {
       isIsoDate(value.approvedAt) &&
       isIsoDate(value.approvalExpiresAt));
   const hasValidCommit = status !== "committed" || isIsoDate(value.committedAt);
+  const boundary = isRecord(value.playbookBoundary)
+    ? value.playbookBoundary
+    : null;
+  const boundaryIsValid = Boolean(
+    boundary &&
+      ["22:00", "23:00"].includes(String(boundary.latestArrivalLimit)) &&
+      ["allow", "escalate"].includes(String(boundary.taxiHandling)) &&
+      boundary.dietaryHandling === "escalate" &&
+      boundary.compensationHandling === "escalate" &&
+      boundary.approvalRequired === true,
+  );
 
   return (
     typeof value.id === "string" &&
@@ -163,6 +187,7 @@ function isPreparedRun(value: unknown): value is PreparedRun {
     value.after.id === value.reservationId &&
     value.before.version === value.reservationVersion &&
     changesAreValid &&
+    boundaryIsValid &&
     typeof value.digest === "string" &&
     /^sha256:[a-f0-9]{64}$/.test(value.digest) &&
     ["awaiting_review", "approved", "committed", "discarded", "stale"].includes(status) &&
@@ -261,6 +286,23 @@ function loadState(): AppState {
   }
 }
 
+function loadTeachingJourney(): TeachingJourney {
+  try {
+    const value = localStorage.getItem(TEACHING_STORAGE_KEY);
+    if (!value) return createTeachingJourney();
+    const parsed: unknown = JSON.parse(value);
+    if (isTeachingJourney(parsed)) return parsed;
+    localStorage.removeItem(TEACHING_STORAGE_KEY);
+  } catch {
+    try {
+      localStorage.removeItem(TEACHING_STORAGE_KEY);
+    } catch {
+      // The in-memory teaching journey remains usable when storage is unavailable.
+    }
+  }
+  return createTeachingJourney();
+}
+
 type StateAction = { type: "replace"; state: AppState };
 
 function stateReducer(_state: AppState, action: StateAction): AppState {
@@ -326,6 +368,196 @@ function DemoIntro({ locale }: { locale: UiLocale }) {
     <section className="demo-intro" aria-label={copy.primaryPitch}>
       <strong>{copy.primaryPitch}</strong>
       <span>{copy.demoDataNotice}</span>
+    </section>
+  );
+}
+
+function JourneySteps({
+  locale,
+  stage,
+}: {
+  locale: UiLocale;
+  stage: TeachingJourney["stage"];
+}) {
+  const copy = copyFor(locale);
+  const activeIndex = stage === "demonstration" ? 1 : stage === "draft" ? 2 : 3;
+  const steps = [
+    [copy.teachingSource, copy.teachingSourceDetail],
+    [copy.agentStructured, copy.agentStructuredDetail],
+    [copy.humanConstrained, copy.humanConstrainedDetail],
+    [copy.websiteEnforced, copy.websiteEnforcedDetail],
+  ] as const;
+
+  return (
+    <ol className="journey-steps">
+      {steps.map(([title, detail], index) => (
+        <li
+          className={`${index < activeIndex ? "is-complete" : ""}${
+            index === activeIndex ? " is-active" : ""
+          }`}
+          key={title}
+        >
+          <span>{index + 1}</span>
+          <div>
+            <strong>{title}</strong>
+            <small>{detail}</small>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function TeachingWorkspace({
+  locale,
+  journey,
+  webMcpStatus,
+  onDraft,
+  onBoundaryChange,
+  onPublish,
+  onJump,
+}: {
+  locale: UiLocale;
+  journey: TeachingJourney;
+  webMcpStatus: WebMcpStatus;
+  onDraft(): void;
+  onBoundaryChange(patch: {
+    latestArrivalLimit?: "22:00" | "23:00";
+    taxiHandling?: "allow" | "escalate";
+  }): void;
+  onPublish(): void;
+  onJump(): void;
+}) {
+  const copy = copyFor(locale);
+  const draft = journey.draft;
+  const publishable = draftIsPublishable(journey);
+
+  return (
+    <main className="teaching-workspace">
+      <div className="teaching-lead">
+        <span>{copy.fullDemoLabel}</span>
+        <h1>{copy.teachingHeadline}</h1>
+        <p>{copy.teachingBody}</p>
+      </div>
+      <JourneySteps locale={locale} stage={journey.stage} />
+      <div className="teaching-grid">
+        <section className="demonstration-card" aria-labelledby="demonstration-heading">
+          <div className="demonstration-heading-row">
+            <div>
+              <span>{copy.demonstratedActionsDetail}</span>
+              <h2 id="demonstration-heading">{copy.demonstratedActions}</h2>
+            </div>
+            <strong>R-2041 · Aiko Tanaka</strong>
+          </div>
+          <ol>
+            {copy.demonstrationActionLabels.map((action, index) => (
+              <li key={action}>
+                <span>{index + 1}</span>
+                <strong>{action}</strong>
+              </li>
+            ))}
+          </ol>
+        </section>
+        <aside className="teaching-panel">
+          <WebMcpAvailability locale={locale} status={webMcpStatus} />
+          {journey.stage === "demonstration" ? (
+            <div className="draft-start">
+              <h2>{copy.agentDraftHeading}</h2>
+              <p>{copy.agentDraftBody}</p>
+              <button className="primary-action" type="button" onClick={onDraft}>
+                {copy.createAgentDraft}
+              </button>
+              <p className="action-note">{copy.createAgentDraftNote}</p>
+              <div className="tool-proof">
+                <code>teachback_get_latest_demonstration</code>
+                <code>teachback_submit_playbook_draft</code>
+              </div>
+              <div className="jump-reuse">
+                <button className="text-button" type="button" onClick={onJump}>
+                  {copy.jumpToReuse}
+                </button>
+                <span>{copy.jumpToReuseDetail}</span>
+              </div>
+            </div>
+          ) : draft ? (
+            <div className="boundary-review">
+              <h2>{copy.boundaryReviewHeading}</h2>
+              <p>{copy.boundaryReviewBody}</p>
+              <div className="draft-rules-heading">
+                <strong>{copy.draftRules}</strong>
+                <span>{copy.agentProposal}</span>
+              </div>
+              <ul className="fixed-rules">
+                {copy.fixedRuleLabels.map((rule) => (
+                  <li key={rule}>
+                    <CheckIcon className="check-icon" />
+                    <span>{rule}</span>
+                  </li>
+                ))}
+              </ul>
+              <div
+                className={`boundary-control${
+                  draft.boundary.latestArrivalLimit === "22:00" ? " is-safe" : " is-risky"
+                }`}
+              >
+                <label htmlFor="latest-arrival-boundary">{copy.latestArrivalRule}</label>
+                <select
+                  id="latest-arrival-boundary"
+                  value={draft.boundary.latestArrivalLimit}
+                  onChange={(event) =>
+                    onBoundaryChange({
+                      latestArrivalLimit: event.target.value as "22:00" | "23:00",
+                    })
+                  }
+                >
+                  <option value="23:00">23:00 · {copy.agentProposal}</option>
+                  <option value="22:00">22:00 · {copy.humanBoundary}</option>
+                </select>
+              </div>
+              <div
+                className={`boundary-control${
+                  draft.boundary.taxiHandling === "escalate" ? " is-safe" : " is-risky"
+                }`}
+              >
+                <label htmlFor="taxi-boundary">{copy.taxiRule}</label>
+                <select
+                  id="taxi-boundary"
+                  value={draft.boundary.taxiHandling}
+                  onChange={(event) =>
+                    onBoundaryChange({
+                      taxiHandling: event.target.value as "allow" | "escalate",
+                    })
+                  }
+                >
+                  <option value="allow">{copy.taxiAllow} · {copy.agentProposal}</option>
+                  <option value="escalate">{copy.taxiEscalate} · {copy.humanBoundary}</option>
+                </select>
+              </div>
+              <button
+                className="primary-action"
+                type="button"
+                disabled={!publishable}
+                onClick={onPublish}
+              >
+                {copy.publishPlaybook}
+              </button>
+              <p className={`publish-note${publishable ? " is-ready" : ""}`}>
+                {publishable ? copy.publishReady : copy.publishBlocked}
+              </p>
+            </div>
+          ) : null}
+        </aside>
+      </div>
+    </main>
+  );
+}
+
+function JourneyProof({ locale }: { locale: UiLocale }) {
+  const copy = copyFor(locale);
+  return (
+    <section className="journey-proof" aria-label={copy.journeyProof}>
+      <strong>{copy.journeyProof}</strong>
+      <span>{copy.journeyProofSummary}</span>
     </section>
   );
 }
@@ -1040,6 +1272,8 @@ function AuditDrawer({
 export default function App() {
   const [state, dispatch] = useReducer(stateReducer, undefined, loadState);
   const stateRef = useRef(state);
+  const [journey, setJourney] = useState<TeachingJourney>(loadTeachingJourney);
+  const journeyRef = useRef(journey);
   const [locale, setLocale] = useState<UiLocale>(() => {
     const initialLocale = loadLocale();
     document.documentElement.lang = initialLocale;
@@ -1061,6 +1295,21 @@ export default function App() {
     setAnnouncement(systemMessageLabel(localeRef.current, message));
   }, []);
 
+  const commitTeachingJourney = useCallback(
+    (
+      expectedState: TeachingJourney,
+      nextState: TeachingJourney,
+      message: string,
+    ): boolean => {
+      if (journeyRef.current !== expectedState) return false;
+      journeyRef.current = nextState;
+      setJourney(nextState);
+      setAnnouncement(systemMessageLabel(localeRef.current, message));
+      return true;
+    },
+    [],
+  );
+
   const commitState = useCallback(
     (expectedState: AppState, nextState: AppState, message: string): boolean => {
       if (stateRef.current !== expectedState) return false;
@@ -1078,6 +1327,15 @@ export default function App() {
       // Persistence is optional; keep the in-memory demo usable when storage fails.
     }
   }, [state]);
+
+  useEffect(() => {
+    journeyRef.current = journey;
+    try {
+      localStorage.setItem(TEACHING_STORAGE_KEY, JSON.stringify(journey));
+    } catch {
+      // Persistence is optional; the teaching journey remains usable in memory.
+    }
+  }, [journey]);
 
   useEffect(() => {
     localeRef.current = locale;
@@ -1101,6 +1359,8 @@ export default function App() {
     registerWebMcpTools({
       getState: () => stateRef.current,
       commitState,
+      getTeachingJourney: () => journeyRef.current,
+      commitTeachingJourney,
     })
       .then((registeredController) => {
         if (cancelled) {
@@ -1119,7 +1379,7 @@ export default function App() {
       cancelled = true;
       controller?.abort();
     };
-  }, [commitState]);
+  }, [commitState, commitTeachingJourney]);
 
   const approvedRunId =
     state.activeRun?.status === "approved" ? state.activeRun.id : null;
@@ -1160,7 +1420,17 @@ export default function App() {
 
   const prepare = useCallback(async () => {
     const sourceState = stateRef.current;
-    const prepared = await prepareCurrentRun(sourceState);
+    const boundary = journeyRef.current.publishedBoundary;
+    if (!boundary) {
+      setAnnouncement(
+        systemMessageLabel(
+          localeRef.current,
+          "A person must review and publish the playbook first.",
+        ),
+      );
+      return;
+    }
+    const prepared = await prepareCurrentRun(sourceState, new Date(), boundary);
     if (!commitState(sourceState, prepared.state, prepared.result.summary)) {
       setAnnouncement(
         systemMessageLabel(
@@ -1183,11 +1453,64 @@ export default function App() {
   const reset = useCallback(() => {
     try {
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(TEACHING_STORAGE_KEY);
     } catch {
       // The in-memory reset still works when storage is unavailable.
     }
     replaceState(resetDemo(), "Demo reset.");
+    const teaching = createTeachingJourney();
+    journeyRef.current = teaching;
+    setJourney(teaching);
   }, [replaceState]);
+
+  const createDraft = useCallback(() => {
+    const source = journeyRef.current;
+    const drafted = draftPlaybook(source, AGENT_DRAFT_BOUNDARY);
+    commitTeachingJourney(source, drafted.state, drafted.result.summary);
+  }, [commitTeachingJourney]);
+
+  const changeDraftBoundary = useCallback(
+    (patch: {
+      latestArrivalLimit?: "22:00" | "23:00";
+      taxiHandling?: "allow" | "escalate";
+    }) => {
+      const source = journeyRef.current;
+      const next = updateDraftBoundary(source, patch);
+      commitTeachingJourney(source, next, "A person updated the draft boundary.");
+    },
+    [commitTeachingJourney],
+  );
+
+  const enterReuse = useCallback(
+    (published: TeachingJourney, message: string) => {
+      const nextState = {
+        ...createInitialState(),
+        audit: teachingAuditEvents(published),
+      };
+      journeyRef.current = published;
+      setJourney(published);
+      replaceState(nextState, message);
+    },
+    [replaceState],
+  );
+
+  const publishDraft = useCallback(() => {
+    const published = publishPlaybook(journeyRef.current);
+    if (!published.result.ok) {
+      setAnnouncement(
+        systemMessageLabel(localeRef.current, published.result.summary),
+      );
+      return;
+    }
+    enterReuse(published.state, published.result.summary);
+  }, [enterReuse]);
+
+  const jumpToReuse = useCallback(() => {
+    enterReuse(
+      createPublishedJourney(),
+      "Late Arrival Care v1 was published with human-set boundaries.",
+    );
+  }, [enterReuse]);
 
   const select = useCallback(
     (reservationId: string) => {
@@ -1222,35 +1545,50 @@ export default function App() {
           onLocaleChange={changeLocale}
           onReset={reset}
         />
-        <DemoIntro locale={locale} />
-        <div className="app-grid">
-          <CaseQueue
+        {journey.stage === "reuse" ? (
+          <>
+            <DemoIntro locale={locale} />
+            <JourneyProof locale={locale} />
+            <div className="app-grid">
+              <CaseQueue
+                locale={locale}
+                reservations={state.reservations}
+                selectedId={state.selectedReservationId}
+                activeRun={state.activeRun}
+                onSelect={select}
+              />
+              <ReservationWorkspace
+                locale={locale}
+                sourceReservation={sourceReservation}
+                isSourceCase={isSourceCase}
+                reservation={reservation}
+                run={visibleRun}
+                rejectionReasons={rejectionReasons}
+              />
+              <ReviewPanel
+                locale={locale}
+                isSourceCase={isSourceCase}
+                webMcpStatus={webMcpStatus}
+                run={visibleRun}
+                rejectionReasons={rejectionReasons}
+                onPrepare={prepare}
+                onApprove={approve}
+                onDiscard={discard}
+                onAudit={openAudit}
+              />
+            </div>
+          </>
+        ) : (
+          <TeachingWorkspace
             locale={locale}
-            reservations={state.reservations}
-            selectedId={state.selectedReservationId}
-            activeRun={state.activeRun}
-            onSelect={select}
-          />
-          <ReservationWorkspace
-            locale={locale}
-            sourceReservation={sourceReservation}
-            isSourceCase={isSourceCase}
-            reservation={reservation}
-            run={visibleRun}
-            rejectionReasons={rejectionReasons}
-          />
-          <ReviewPanel
-            locale={locale}
-            isSourceCase={isSourceCase}
+            journey={journey}
             webMcpStatus={webMcpStatus}
-            run={visibleRun}
-            rejectionReasons={rejectionReasons}
-            onPrepare={prepare}
-            onApprove={approve}
-            onDiscard={discard}
-            onAudit={openAudit}
+            onDraft={createDraft}
+            onBoundaryChange={changeDraftBoundary}
+            onPublish={publishDraft}
+            onJump={jumpToReuse}
           />
-        </div>
+        )}
         <p className="sr-only" aria-live="polite">
           {announcement}
         </p>

@@ -3,6 +3,83 @@ import { expect, test } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Reset demo" }).click();
+  await page.getByRole("button", { name: "Jump to reuse" }).click();
+});
+
+test("turns a demonstration into a human-bounded playbook before reuse", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Reset demo" }).click();
+
+  await expect(
+    page.getByRole("heading", {
+      name: "Show one real case. Let the agent draft the playbook. A person sets the boundaries.",
+    }),
+  ).toBeVisible();
+  await expect(page.getByText("R-2041 · Aiko Tanaka", { exact: true }))
+    .toBeVisible();
+  await expect(page.locator(".demonstration-card li")).toHaveCount(4);
+  await expect(page.getByText("teachback_get_latest_demonstration", { exact: true }))
+    .toBeVisible();
+  await expect(page.getByRole("button", { name: "Check conditions and prepare preview" }))
+    .toHaveCount(0);
+
+  await page.getByRole("button", { name: "Create agent draft" }).click();
+  await expect(page.getByRole("heading", { name: "Review the agent draft" }))
+    .toBeVisible();
+  const publish = page.getByRole("button", {
+    name: "Publish human-bounded playbook",
+  });
+  await expect(publish).toBeDisabled();
+  await page.getByLabel("Latest arrival").selectOption("22:00");
+  await expect(publish).toBeDisabled();
+  await page.getByLabel("Taxi request").selectOption("escalate");
+  await expect(publish).toBeEnabled();
+  await expect(
+    page.getByText("The human-set boundary is ready to publish.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await publish.click();
+
+  await expect(page.getByRole("heading", { name: "Emma Wilson" })).toBeVisible();
+  await expect(page.getByText("How this playbook was created", { exact: true }))
+    .toBeVisible();
+  await page.getByRole("button", { name: "View audit trail" }).click();
+  await expect(page.getByText("teachback_submit_playbook_draft", { exact: true }))
+    .toBeVisible();
+  await expect(page.getByText("Human approval", { exact: true })).toHaveCount(3);
+});
+
+test("keeps the full teaching journey coherent at intermediate widths", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Reset demo" }).click();
+
+  for (const width of [390, 768, 900, 1023, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const layout = await page.evaluate(() => {
+      const demo = document.querySelector(".demonstration-card")!;
+      const panel = document.querySelector(".teaching-panel")!;
+      const demoRect = demo.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      return {
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        demo: { x: Math.round(demoRect.x), y: Math.round(demoRect.y) },
+        panel: { x: Math.round(panelRect.x), y: Math.round(panelRect.y) },
+      };
+    });
+    expect(layout.scrollWidth, `overflow at ${width}px`).toBeLessThanOrEqual(
+      layout.clientWidth,
+    );
+    if (width <= 1023) {
+      expect(layout.panel.y, `stack at ${width}px`).toBeGreaterThan(layout.demo.y);
+    } else {
+      expect(layout.panel.y, `columns at ${width}px`).toBe(layout.demo.y);
+      expect(layout.panel.x, `columns at ${width}px`).toBeGreaterThan(layout.demo.x);
+    }
+  }
 });
 
 test("prepares, approves, and keeps commit bound to the agent tool", async ({ page }) => {
@@ -270,22 +347,24 @@ test("reports WebMCP readiness without persisting UI status", async ({ page }) =
   });
   await page.reload();
 
-  await expect(page.getByText("Available · 3 tools", { exact: true })).toBeVisible();
+  await expect(page.getByText("Available · 5 tools", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => {
     const testWindow = window as Window & { registeredTeachbackTools?: string[] };
     return testWindow.registeredTeachbackTools;
   })).toEqual([
+    "teachback_get_latest_demonstration",
+    "teachback_submit_playbook_draft",
     "teachback_get_current_case",
     "teachback_prepare_current",
     "teachback_commit_approved",
   ]);
 
   await page.getByRole("button", { name: "日本語" }).click();
-  await expect(page.getByText("利用可能 · 3ツール", { exact: true })).toBeVisible();
+  await expect(page.getByText("利用可能 · 5ツール", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => {
     const testWindow = window as Window & { registeredTeachbackTools?: string[] };
     return testWindow.registeredTeachbackTools?.length;
-  })).toBe(3);
+  })).toBe(5);
 
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("teachback-demo-v1") ?? "null"),

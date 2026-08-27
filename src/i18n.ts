@@ -19,6 +19,58 @@ export const UI_COPY = {
     primaryPitch:
       "Teach it once. Reuse it only when the conditions match and a person approves the exact changes.",
     demoDataNotice: "Challenge demo · All people and reservations are synthetic",
+    teachingHeadline:
+      "Show one real case. Let the agent draft the playbook. A person sets the boundaries.",
+    teachingBody:
+      "Aiko demonstrated four actions on R-2041. The agent can structure them, but only a person can tighten and publish the reusable boundary.",
+    fullDemoLabel: "Full Teachback demo",
+    jumpToReuse: "Jump to reuse",
+    jumpToReuseDetail: "Continue with Emma's case",
+    teachingSource: "1 · Human demonstrated",
+    teachingSourceDetail: "Aiko handled R-2041 with 4 semantic actions",
+    agentStructured: "2 · Agent structured",
+    agentStructuredDetail: "Draft 7 reusable rules from the demonstration",
+    humanConstrained: "3 · Human constrained",
+    humanConstrainedDetail: "Review two risky boundaries before publishing",
+    websiteEnforced: "4 · Website enforces",
+    websiteEnforcedDetail: "Reuse only the published boundary",
+    demonstratedActions: "Recorded demonstration",
+    demonstratedActionsDetail: "4 semantic actions · synthetic case",
+    demonstrationActionLabels: [
+      "Set estimated arrival to 21:30",
+      "Changed dinner to a late meal box",
+      "Drafted the guest message",
+      "Added the shift handoff",
+    ],
+    agentDraftHeading: "Ask the agent to draft the playbook",
+    agentDraftBody:
+      "The agent reads the demonstration through WebMCP and submits a draft. It cannot publish or execute it.",
+    createAgentDraft: "Create agent draft",
+    createAgentDraftNote:
+      "Demo input: latest arrival 23:00 · taxi requests allowed",
+    boundaryReviewHeading: "Review the agent draft",
+    boundaryReviewBody:
+      "Two proposed limits are too broad. A person must tighten both before publishing.",
+    draftRules: "7 proposed rules",
+    fixedRuleLabels: [
+      "Confirmed reservation",
+      "Arrival is today",
+      "Guest has not checked in",
+      "New dietary request → escalate",
+      "Compensation request → escalate",
+    ],
+    latestArrivalRule: "Latest arrival",
+    taxiRule: "Taxi request",
+    taxiAllow: "Handle in playbook",
+    taxiEscalate: "Escalate to a person",
+    agentProposal: "Agent proposal",
+    humanBoundary: "Human boundary",
+    publishPlaybook: "Publish human-bounded playbook",
+    publishBlocked: "Tighten the two highlighted boundaries to publish.",
+    publishReady: "The human-set boundary is ready to publish.",
+    journeyProof: "How this playbook was created",
+    journeyProofSummary:
+      "Human demonstrated · Agent structured · Human constrained · Website enforces",
     cases: "Cases",
     playbookFlow: "How Teachback reuses work",
     taughtFrom: "1 · Taught from",
@@ -64,7 +116,7 @@ export const UI_COPY = {
     caseApprovalExpired: "Approval expired",
     webMcpTools: "WebMCP tools",
     webMcpChecking: "Checking availability",
-    webMcpReady: "Available · 3 tools",
+    webMcpReady: "Available · 5 tools",
     webMcpUnavailable: "Not available in this browser",
     webMcpError: "Registration failed",
     webMcpCheckingDetail:
@@ -127,6 +179,57 @@ export const UI_COPY = {
     primaryPitch:
       "一度教えたWeb業務を、条件が一致し、人が変更内容を承認した場合だけ再実行します。",
     demoDataNotice: "応募デモ · 人物・予約情報はすべて合成データです",
+    teachingHeadline:
+      "ひとつの実例を見せる。Agentが手順を草案化する。人が任せる境界を決める。",
+    teachingBody:
+      "AikoがR-2041で4つの対応を実演しました。Agentは構造化できますが、再利用する境界を修正し公開できるのは人だけです。",
+    fullDemoLabel: "Teachbackのフルデモ",
+    jumpToReuse: "再利用から見る",
+    jumpToReuseDetail: "Emmaの成功例へ進む",
+    teachingSource: "1 · 人が実演",
+    teachingSourceDetail: "AikoがR-2041で4つの操作を実行",
+    agentStructured: "2 · Agentが構造化",
+    agentStructuredDetail: "実演から7つの再利用条件を草案化",
+    humanConstrained: "3 · 人が境界を確定",
+    humanConstrainedDetail: "危険な2条件を修正して公開",
+    websiteEnforced: "4 · サイトが強制",
+    websiteEnforcedDetail: "公開済みの境界だけを再利用",
+    demonstratedActions: "記録した実演",
+    demonstratedActionsDetail: "4つの操作 · 合成データ",
+    demonstrationActionLabels: [
+      "到着見込みを21:30に設定",
+      "夕食を遅着用ミールボックスへ変更",
+      "ゲスト向けメッセージを作成",
+      "次のシフトへの引き継ぎを追加",
+    ],
+    agentDraftHeading: "Agentにプレイブック草案を作らせる",
+    agentDraftBody:
+      "AgentはWebMCPで実演を読み取り、草案だけを提出します。公開も実行もできません。",
+    createAgentDraft: "Agent草案を作成",
+    createAgentDraftNote: "デモ草案：到着23:00まで · タクシー依頼も対応",
+    boundaryReviewHeading: "Agent草案を確認",
+    boundaryReviewBody:
+      "2つの提案が広すぎます。人が両方を安全側へ修正するまで公開できません。",
+    draftRules: "7つの提案ルール",
+    fixedRuleLabels: [
+      "予約が確定している",
+      "到着日が本日",
+      "未チェックイン",
+      "新しい食事制限 → 担当者へ切替",
+      "補償依頼 → 担当者へ切替",
+    ],
+    latestArrivalRule: "対応する最終到着時刻",
+    taxiRule: "タクシー依頼",
+    taxiAllow: "プレイブックで対応",
+    taxiEscalate: "担当者へ切り替える",
+    agentProposal: "Agentの提案",
+    humanBoundary: "人が確定",
+    publishPlaybook: "人が境界を決めたプレイブックを公開",
+    publishBlocked: "強調された2条件を修正すると公開できます。",
+    publishReady: "人が決めた境界を公開できます。",
+    journeyProof: "このプレイブックができるまで",
+    journeyProofSummary:
+      "人が実演 · Agentが構造化 · 人が境界を確定 · サイトが強制",
     cases: "予約一覧",
     playbookFlow: "Teachbackの流れ",
     taughtFrom: "1 · 教えた対応",
@@ -172,7 +275,7 @@ export const UI_COPY = {
     caseApprovalExpired: "承認切れ",
     webMcpTools: "WebMCPツール",
     webMcpChecking: "利用可否を確認中",
-    webMcpReady: "利用可能 · 3ツール",
+    webMcpReady: "利用可能 · 5ツール",
     webMcpUnavailable: "このブラウザでは未提供",
     webMcpError: "登録できませんでした",
     webMcpCheckingDetail:
@@ -336,6 +439,10 @@ const SYSTEM_MESSAGES_JA: Record<string, string> = {
     "プレビューを承認しました。有効期限は5分です。",
   "The approved changes were committed exactly once.":
     "承認済みの変更を一度だけ反映しました。",
+  "The agent drafted 7 rules. Human boundary review is required.":
+    "Agentが7つのルールを草案化しました。人による境界確認が必要です。",
+  "Late Arrival Care v1 was published with human-set boundaries.":
+    "人が境界を確定したレイトアライバル対応 v1 を公開しました。",
   "The approval has expired. Prepare a new preview.":
     "承認の有効期限が切れました。もう一度、変更案を作成してください。",
 };
@@ -400,6 +507,10 @@ export function auditOperationLabel(
   }[locale];
 
   if (summary.startsWith("Recorded ")) return labels.teaching;
+  if (summary.startsWith("Drafted ")) return "teachback_submit_playbook_draft";
+  if (summary.startsWith("Changed ") || summary.startsWith("Published ")) {
+    return labels.approval;
+  }
   if (summary.startsWith("Prepared ") || summary.startsWith("Rejected ")) {
     return labels.policy;
   }
@@ -412,6 +523,26 @@ export function auditSummaryLabel(locale: UiLocale, summary: string): string {
   if (locale === "en") return summary;
 
   const patterns: Array<[RegExp, (...matches: string[]) => string]> = [
+    [
+      /^Recorded 4 semantic actions from R-2041\.$/,
+      () => "R-2041から4つの操作を記録しました。",
+    ],
+    [
+      /^Drafted 7 rules from R-2041 as (.+)\.$/,
+      (draftId) => `AgentがR-2041から7つのルールを草案化しました（${draftId}）。`,
+    ],
+    [
+      /^Changed latest arrival from (.+) to (.+)\.$/,
+      (before, after) => `最終到着時刻を${before}から${after}へ変更しました。`,
+    ],
+    [
+      /^Changed taxi handling from allow to escalate\.$/,
+      () => "タクシー依頼をプレイブック対応から担当者判断へ変更しました。",
+    ],
+    [
+      /^Published Late Arrival Care v1\.$/,
+      () => "レイトアライバル対応 v1 を公開しました。",
+    ],
     [
       /^Recorded the Late Arrival Care demonstration on (.+)\.$/,
       (reservationId) =>

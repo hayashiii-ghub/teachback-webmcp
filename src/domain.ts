@@ -3,6 +3,15 @@ export const SOURCE_RESERVATION_ID = "R-2041";
 
 export type ReservationStatus = "confirmed" | "checked_in" | "cancelled";
 export type MealService = "regular_dinner" | "late_meal_box" | "none";
+export type LatestArrivalLimit = "22:00" | "23:00";
+export type TaxiHandling = "allow" | "escalate";
+export interface PlaybookBoundary {
+  latestArrivalLimit: LatestArrivalLimit;
+  taxiHandling: TaxiHandling;
+  dietaryHandling: "escalate";
+  compensationHandling: "escalate";
+  approvalRequired: true;
+}
 export type CaseLabel = "Recorded" | "Needs review" | "Human only" | "Resolved";
 export type RunStatus =
   | "awaiting_review"
@@ -43,6 +52,7 @@ export interface PreparedRun {
   before: Reservation;
   after: Reservation;
   proposedChanges: ProposedChange[];
+  playbookBoundary: PlaybookBoundary;
   digest: string;
   status: RunStatus;
   approvedDigest: string | null;
