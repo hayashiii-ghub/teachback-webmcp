@@ -25,8 +25,33 @@ import {
   CheckIcon,
   CloseIcon,
 } from "./icons";
+import {
+  actorLabel,
+  auditSummaryLabel,
+  caseLabel,
+  copyFor,
+  fieldLabel,
+  reasonLabel,
+  statusLabel,
+  systemMessageLabel,
+  valueLabel,
+  type UiLocale,
+} from "./i18n";
 
 const STORAGE_KEY = "teachback-demo-v1";
+const LOCALE_STORAGE_KEY = "teachback-ui-locale-v1";
+
+function loadLocale(): UiLocale {
+  try {
+    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+    if (stored === "en" || stored === "ja") return stored;
+    if (stored) localStorage.removeItem(LOCALE_STORAGE_KEY);
+  } catch {
+    // Browser language remains a safe fallback when storage is unavailable.
+  }
+
+  return navigator.language.toLowerCase().startsWith("ja") ? "ja" : "en";
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -190,36 +215,71 @@ function stateReducer(_state: AppState, action: StateAction): AppState {
   return action.state;
 }
 
-function displayStatus(reservation: Reservation): string {
-  return reservation.status === "confirmed" ? "Confirmed" : reservation.status;
-}
+function AppHeader({
+  locale,
+  onLocaleChange,
+  onReset,
+}: {
+  locale: UiLocale;
+  onLocaleChange(locale: UiLocale): void;
+  onReset(): void;
+}) {
+  const copy = copyFor(locale);
 
-function AppHeader({ onReset }: { onReset(): void }) {
   return (
     <header className="app-header">
       <div className="brand-lockup">
         <span className="brand">Teachback</span>
-        <span className="tagline">Show once. Set the boundaries. Reuse safely.</span>
+        <span className="tagline">{copy.tagline}</span>
       </div>
-      <button className="text-button" type="button" onClick={onReset}>
-        Reset demo
-      </button>
+      <div className="header-actions">
+        <span className="origin-mark" lang="en">
+          Built in Japan
+        </span>
+        <div className="language-switch" role="group" aria-label={copy.language}>
+          <button
+            className={locale === "en" ? "is-active" : undefined}
+            type="button"
+            aria-pressed={locale === "en"}
+            aria-label={copy.switchToEnglish}
+            onClick={() => onLocaleChange("en")}
+          >
+            EN
+          </button>
+          <button
+            className={locale === "ja" ? "is-active" : undefined}
+            type="button"
+            aria-pressed={locale === "ja"}
+            aria-label={copy.switchToJapanese}
+            onClick={() => onLocaleChange("ja")}
+          >
+            日本語
+          </button>
+        </div>
+        <button className="text-button" type="button" onClick={onReset}>
+          {copy.resetDemo}
+        </button>
+      </div>
     </header>
   );
 }
 
 function CaseQueue({
+  locale,
   reservations,
   selectedId,
   onSelect,
 }: {
+  locale: UiLocale;
   reservations: Reservation[];
   selectedId: string;
   onSelect(id: string): void;
 }) {
+  const copy = copyFor(locale);
+
   return (
-    <nav className="case-queue" aria-label="Cases">
-      <h2>Cases</h2>
+    <nav className="case-queue" aria-label={copy.cases}>
+      <h2>{copy.cases}</h2>
       <ul className="case-list">
         {reservations.map((reservation) => {
           const selected = reservation.id === selectedId;
@@ -235,7 +295,9 @@ function CaseQueue({
                   <span>{reservation.id}</span>
                   <span>{reservation.guestDisplayName}</span>
                 </span>
-                <span className="case-secondary">{reservation.label}</span>
+                <span className="case-secondary">
+                  {caseLabel(locale, reservation.label)}
+                </span>
                 <CaretRightIcon className="case-caret" />
               </button>
             </li>
@@ -246,130 +308,187 @@ function CaseQueue({
   );
 }
 
-function ReservationFacts({ reservation }: { reservation: Reservation }) {
+function ReservationFacts({
+  locale,
+  reservation,
+}: {
+  locale: UiLocale;
+  reservation: Reservation;
+}) {
+  const copy = copyFor(locale);
+
   return (
-    <div className="reservation-facts" aria-label="Reservation summary">
+    <div className="reservation-facts" aria-label={copy.reservationSummary}>
       <div>
-        <span>Planned arrival</span>
+        <span>{copy.plannedArrival}</span>
         <strong>{reservation.plannedArrivalTime}</strong>
       </div>
       <div>
-        <span>Requested arrival</span>
+        <span>{copy.requestedArrival}</span>
         <strong>{reservation.requestedArrivalTime}</strong>
       </div>
       <div>
-        <span>Dinner</span>
-        <strong>{reservation.mealPlan === "dinner_included" ? "Included" : "None"}</strong>
+        <span>{copy.dinner}</span>
+        <strong>
+          {reservation.mealPlan === "dinner_included" ? copy.included : copy.none}
+        </strong>
       </div>
     </div>
   );
 }
 
-function EmptyWorkspace({ onPrepare }: { onPrepare(): void }) {
+function EmptyWorkspace({
+  locale,
+  onPrepare,
+}: {
+  locale: UiLocale;
+  onPrepare(): void;
+}) {
+  const copy = copyFor(locale);
+
   return (
     <section className="empty-workspace" aria-labelledby="ready-heading">
-      <h2 id="ready-heading">Ready for agent preparation</h2>
-      <p>
-        Late Arrival Care can prepare a bounded preview for this selected case.
-        Nothing changes until a person approves it.
-      </p>
+      <h2 id="ready-heading">{copy.readyHeading}</h2>
+      <p>{copy.readyBody}</p>
       <button className="secondary-action" type="button" onClick={onPrepare}>
-        Prepare preview locally
+        {copy.prepareLocally}
       </button>
     </section>
   );
 }
 
-function ProposedChanges({ run }: { run: PreparedRun }) {
+function ProposedChanges({
+  locale,
+  run,
+}: {
+  locale: UiLocale;
+  run: PreparedRun;
+}) {
+  const copy = copyFor(locale);
   const applied = run.status === "committed";
   return (
     <section className="changes-section" aria-labelledby="changes-heading">
-      <h2 id="changes-heading">Proposed changes</h2>
+      <h2 id="changes-heading">{copy.proposedChanges}</h2>
       <div className="changes-timeline">
         {run.proposedChanges.map((change) => (
           <div className="change-row" key={change.field}>
             <span className="timeline-node" aria-hidden="true" />
-            <span className="change-field">{change.field}</span>
+            <span className="change-field">{fieldLabel(locale, change.field)}</span>
             {change.before ? (
               <span className="change-values">
-                <span>{change.before}</span>
+                <span
+                  lang={
+                    locale === "ja" &&
+                    (change.field === "Guest message" || change.field === "Handoff")
+                      ? "en"
+                      : undefined
+                  }
+                >
+                  {valueLabel(locale, change.field, change.before)}
+                </span>
                 <ArrowRightIcon className="change-arrow" />
-                <strong>{change.after}</strong>
+                <strong
+                  lang={
+                    locale === "ja" &&
+                    (change.field === "Guest message" || change.field === "Handoff")
+                      ? "en"
+                      : undefined
+                  }
+                >
+                  {valueLabel(locale, change.field, change.after)}
+                </strong>
               </span>
             ) : (
-              <strong className="change-after">{change.after}</strong>
+              <strong
+                className="change-after"
+                lang={
+                  locale === "ja" &&
+                  (change.field === "Guest message" || change.field === "Handoff")
+                    ? "en"
+                    : undefined
+                }
+              >
+                {valueLabel(locale, change.field, change.after)}
+              </strong>
             )}
           </div>
         ))}
       </div>
       <p className={`application-note${applied ? " is-applied" : ""}`}>
-        {applied ? "Approved changes have been applied." : "No changes have been applied."}
+        {applied ? copy.applied : copy.notApplied}
       </p>
     </section>
   );
 }
 
-function RejectedResult({ reasons }: { reasons: string[] }) {
+function RejectedResult({
+  locale,
+  reasons,
+}: {
+  locale: UiLocale;
+  reasons: string[];
+}) {
+  const copy = copyFor(locale);
+
   return (
     <section className="rejected-result" role="alert" aria-labelledby="rejected-heading">
-      <h2 id="rejected-heading">Human review required</h2>
+      <h2 id="rejected-heading">{copy.humanReviewRequired}</h2>
       <ul>
         {reasons.map((reason) => (
-          <li key={reason}>{reason}</li>
+          <li key={reason}>{reasonLabel(locale, reason)}</li>
         ))}
       </ul>
-      <p>No changes were made.</p>
+      <p>{copy.noChanges}</p>
     </section>
   );
 }
 
 function ReservationWorkspace({
+  locale,
   reservation,
   run,
   rejectionReasons,
   onPrepare,
 }: {
+  locale: UiLocale;
   reservation: Reservation;
   run: PreparedRun | null;
   rejectionReasons: string[] | null;
   onPrepare(): void;
 }) {
+  const copy = copyFor(locale);
+
   return (
     <main className="reservation-workspace">
       <h1 tabIndex={-1}>{reservation.guestDisplayName}</h1>
       <div className="reservation-meta">
-        <span>Reservation ID</span>
+        <span>{copy.reservationId}</span>
         <strong>{reservation.id}</strong>
         <i aria-hidden="true" />
-        <span>Status</span>
-        <strong>{displayStatus(reservation)}</strong>
+        <span>{copy.status}</span>
+        <strong>{statusLabel(locale, reservation.status)}</strong>
         <i aria-hidden="true" />
-        <span>Arrival</span>
-        <strong>{reservation.arrivalDate === "2026-08-27" ? "Today" : reservation.arrivalDate}</strong>
+        <span>{copy.arrival}</span>
+        <strong>
+          {reservation.arrivalDate === "2026-08-27"
+            ? copy.today
+            : reservation.arrivalDate}
+        </strong>
       </div>
-      <ReservationFacts reservation={reservation} />
+      <ReservationFacts locale={locale} reservation={reservation} />
       {rejectionReasons ? (
-        <RejectedResult reasons={rejectionReasons} />
+        <RejectedResult locale={locale} reasons={rejectionReasons} />
       ) : run && run.status !== "discarded" ? (
-        <ProposedChanges run={run} />
+        <ProposedChanges locale={locale} run={run} />
       ) : (
-        <EmptyWorkspace onPrepare={onPrepare} />
+        <EmptyWorkspace locale={locale} onPrepare={onPrepare} />
       )}
     </main>
   );
 }
 
-const eligibilityItems = [
-  "Confirmed reservation",
-  "Arrival is today",
-  "Guest has not checked in",
-  "Arrival is before 22:00",
-  "No new dietary request",
-  "No taxi request",
-  "No compensation request",
-];
-
 function ReviewPanel({
+  locale,
   run,
   rejectionReasons,
   onPrepare,
@@ -377,6 +496,7 @@ function ReviewPanel({
   onDiscard,
   onAudit,
 }: {
+  locale: UiLocale;
   run: PreparedRun | null;
   rejectionReasons: string[] | null;
   onPrepare(): void;
@@ -384,6 +504,7 @@ function ReviewPanel({
   onDiscard(): void;
   onAudit(event: ReactMouseEvent<HTMLButtonElement>): void;
 }) {
+  const copy = copyFor(locale);
   const isAwaiting = run?.status === "awaiting_review";
   const isApproved = run?.status === "approved";
   const isCommitted = run?.status === "committed";
@@ -392,10 +513,10 @@ function ReviewPanel({
 
   return (
     <aside className="review-panel" aria-labelledby="review-heading">
-      <h2 id="review-heading">Review</h2>
+      <h2 id="review-heading">{copy.review}</h2>
       {!isRejected ? (
         <ul className="eligibility-list" id="approval-criteria">
-          {eligibilityItems.map((item) => (
+          {copy.eligibility.map((item) => (
             <li key={item}>
               <CheckIcon className="check-icon" />
               <span>{item}</span>
@@ -405,8 +526,8 @@ function ReviewPanel({
       ) : (
         <div className="review-rejected">
           <CloseIcon className="rejected-icon" />
-          <strong>Outside the playbook boundary</strong>
-          <p>The website refused to prepare changes for this case.</p>
+          <strong>{copy.outsideBoundary}</strong>
+          <p>{copy.refusedPreparation}</p>
         </div>
       )}
       <div className="approval-step" aria-hidden="true">
@@ -415,7 +536,7 @@ function ReviewPanel({
       <div className="review-actions">
         {!run && !isRejected ? (
           <button className="primary-action" type="button" onClick={onPrepare}>
-            Prepare preview
+            {copy.preparePreview}
           </button>
         ) : isAwaiting ? (
           <button
@@ -424,28 +545,28 @@ function ReviewPanel({
             onClick={onApprove}
             aria-describedby="approval-criteria changes-heading"
           >
-            Approve preview
+            {copy.approvePreview}
           </button>
         ) : isApproved ? (
           <button className="primary-action is-approved" type="button" disabled>
-            Approved — ready to commit
+            {copy.approvedReady}
           </button>
         ) : isCommitted ? (
           <button className="primary-action is-approved" type="button" disabled>
-            Committed
+            {copy.committed}
           </button>
         ) : isStale ? (
           <button className="primary-action" type="button" onClick={onPrepare}>
-            Prepare again
+            {copy.prepareAgain}
           </button>
         ) : null}
         {run && !isCommitted && run.status !== "discarded" ? (
           <button className="secondary-action" type="button" onClick={onDiscard}>
-            Discard
+            {copy.discard}
           </button>
         ) : null}
         <button className="text-button audit-link" type="button" onClick={onAudit}>
-          View audit trail
+          {copy.viewAudit}
         </button>
       </div>
     </aside>
@@ -453,18 +574,21 @@ function ReviewPanel({
 }
 
 function AuditDrawer({
+  locale,
   open,
   events,
   onClose,
   backgroundRef,
   returnFocusRef,
 }: {
+  locale: UiLocale;
   open: boolean;
   events: AppState["audit"];
   onClose(): void;
   backgroundRef: RefObject<HTMLDivElement | null>;
   returnFocusRef: RefObject<HTMLButtonElement | null>;
 }) {
+  const copy = copyFor(locale);
   const drawerRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -531,13 +655,13 @@ function AuditDrawer({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="drawer-header">
-          <h2 id="audit-heading">Audit trail</h2>
+          <h2 id="audit-heading">{copy.auditTrail}</h2>
           <button
             ref={closeButtonRef}
             className="icon-button"
             type="button"
             onClick={onClose}
-            aria-label="Close audit trail"
+            aria-label={copy.closeAudit}
           >
             <CloseIcon />
           </button>
@@ -545,9 +669,18 @@ function AuditDrawer({
         <ol className="audit-events">
           {[...events].reverse().map((event) => (
             <li key={event.id}>
-              <strong>{event.actor}</strong>
-              <span>{event.summary}</span>
-              <time dateTime={event.at}>{new Date(event.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>
+              <strong>{actorLabel(locale, event.actor)}</strong>
+              <span>{auditSummaryLabel(locale, event.summary)}</span>
+              <time dateTime={event.at}>
+                {new Date(event.at).toLocaleTimeString(
+                  locale === "ja" ? "ja-JP" : "en-US",
+                  {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    timeZone: "Asia/Tokyo",
+                  },
+                )}
+              </time>
             </li>
           ))}
         </ol>
@@ -559,7 +692,11 @@ function AuditDrawer({
 export default function App() {
   const [state, dispatch] = useReducer(stateReducer, undefined, loadState);
   const stateRef = useRef(state);
-  const [announcement, setAnnouncement] = useState("Teachback demo ready.");
+  const [locale, setLocale] = useState<UiLocale>(loadLocale);
+  const localeRef = useRef(locale);
+  const [announcement, setAnnouncement] = useState(() =>
+    systemMessageLabel(locale, "Teachback demo ready."),
+  );
   const [auditOpen, setAuditOpen] = useState(false);
   const appContentRef = useRef<HTMLDivElement>(null);
   const auditTriggerRef = useRef<HTMLButtonElement>(null);
@@ -567,7 +704,7 @@ export default function App() {
   const replaceState = useCallback((nextState: AppState, message: string) => {
     stateRef.current = nextState;
     dispatch({ type: "replace", state: nextState });
-    setAnnouncement(message);
+    setAnnouncement(systemMessageLabel(localeRef.current, message));
   }, []);
 
   const commitState = useCallback(
@@ -589,6 +726,21 @@ export default function App() {
   }, [state]);
 
   useEffect(() => {
+    localeRef.current = locale;
+    document.documentElement.lang = locale;
+    const copy = copyFor(locale);
+    document.title = copy.documentTitle;
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute("content", copy.metaDescription);
+    try {
+      localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+    } catch {
+      // Language preference is optional; the current view remains localized.
+    }
+  }, [locale]);
+
+  useEffect(() => {
     let controller: AbortController | null = null;
     let cancelled = false;
     registerWebMcpTools({
@@ -599,7 +751,14 @@ export default function App() {
         if (cancelled) registeredController?.abort();
         else controller = registeredController;
       })
-      .catch(() => setAnnouncement("WebMCP tools could not be registered."));
+      .catch(() =>
+        setAnnouncement(
+          systemMessageLabel(
+            localeRef.current,
+            "WebMCP tools could not be registered.",
+          ),
+        ),
+      );
 
     return () => {
       cancelled = true;
@@ -639,7 +798,12 @@ export default function App() {
     const sourceState = stateRef.current;
     const prepared = await prepareCurrentRun(sourceState);
     if (!commitState(sourceState, prepared.state, prepared.result.summary)) {
-      setAnnouncement("The case changed while the preview was being prepared.");
+      setAnnouncement(
+        systemMessageLabel(
+          localeRef.current,
+          "The case changed while the preview was being prepared.",
+        ),
+      );
     }
   }, [commitState]);
 
@@ -679,24 +843,40 @@ export default function App() {
     [],
   );
   const closeAudit = useCallback(() => setAuditOpen(false), []);
+  const changeLocale = useCallback((nextLocale: UiLocale) => {
+    localeRef.current = nextLocale;
+    setLocale(nextLocale);
+    setAnnouncement(
+      nextLocale === "ja"
+        ? "表示言語を日本語に切り替えました。"
+        : "Display language changed to English.",
+    );
+  }, []);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-locale={locale}>
       <div className="app-content" ref={appContentRef}>
-        <AppHeader onReset={reset} />
+        <AppHeader
+          locale={locale}
+          onLocaleChange={changeLocale}
+          onReset={reset}
+        />
         <div className="app-grid">
           <CaseQueue
+            locale={locale}
             reservations={state.reservations}
             selectedId={state.selectedReservationId}
             onSelect={select}
           />
           <ReservationWorkspace
+            locale={locale}
             reservation={reservation}
             run={visibleRun}
             rejectionReasons={rejectionReasons}
             onPrepare={prepare}
           />
           <ReviewPanel
+            locale={locale}
             run={visibleRun}
             rejectionReasons={rejectionReasons}
             onPrepare={prepare}
@@ -710,6 +890,7 @@ export default function App() {
         </p>
       </div>
       <AuditDrawer
+        locale={locale}
         open={auditOpen}
         events={state.audit}
         onClose={closeAudit}

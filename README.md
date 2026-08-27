@@ -57,6 +57,12 @@ The selected UI concept is saved at [`docs/ui-concept.png`](docs/ui-concept.png)
 The final 1440×900 browser capture is saved at
 [`docs/final-desktop.png`](docs/final-desktop.png).
 
+The operator UI supports English and Japanese. It follows the browser language
+on first use and keeps an explicit `EN / 日本語` preference separately from demo
+state. Switching the UI never changes a prepared run or approval digest. WebMCP
+tool names, schemas, result codes, and JSON keys remain stable in English; exact
+guest-facing copy remains visible in its source language for approval.
+
 ## License
 
 MIT
