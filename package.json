@@ -8,6 +8,7 @@
     "dev": "vinext dev",
     "build": "tsc -b && vinext build",
     "preview": "vinext start --port 4173",
+    "render:brand": "bun scripts/render-brand-assets.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

@@ -3,11 +3,9 @@
   <desc id="description">Turn one human-handled case into a reusable, human-approved playbook.</desc>
   <rect width="1200" height="800" fill="#fbfaf6"/>
   <path d="M0 0h16v800H0z" fill="#d83427"/>
-  <g transform="translate(76 76) scale(1.75)">
-    <path fill="#171512" d="M4 6h26v8h-9v28h-8V14H4z"/>
-    <path fill="none" stroke="#d83427" stroke-width="4" d="M34 6h10v36H34"/>
-  </g>
-  <text x="76" y="300" fill="#171512" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="120" font-weight="600" letter-spacing="-6">Teachback</text>
+  <text x="76" y="300" fill="#171512" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="120" font-weight="600" letter-spacing="-6">T</text>
+  <path fill="none" stroke="#d83427" stroke-width="8" d="M168 204h26v100h-26"/>
+  <text x="236" y="300" fill="#171512" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="120" font-weight="600" letter-spacing="-6">Teachback</text>
   <text x="82" y="380" fill="#59544d" font-family="Helvetica Neue, Arial, sans-serif" font-size="34">Turn one human-handled case into a reusable,</text>
   <text x="82" y="426" fill="#59544d" font-family="Helvetica Neue, Arial, sans-serif" font-size="34">human-approved playbook.</text>
   <path d="M82 514H1118" stroke="#d8d3ca" stroke-width="2"/>

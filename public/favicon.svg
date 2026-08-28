@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
   <rect width="48" height="48" fill="#fbfaf6"/>
-  <path fill="#171512" d="M4 6h26v8h-9v28h-8V14H4z"/>
+  <text x="0" y="42" fill="#171512" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="49" font-weight="600" letter-spacing="-2">T</text>
   <path fill="none" stroke="#d83427" stroke-width="4" d="M34 6h10v36H34"/>
 </svg>

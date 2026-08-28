@@ -1,9 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 96" role="img" aria-labelledby="title description">
   <title id="title">Teachback</title>
   <desc id="description">Teachback wordmark with a human-approved boundary symbol.</desc>
-  <g transform="translate(8 16) scale(1.333333)">
-    <path fill="#171512" d="M4 6h26v8h-9v28h-8V14H4z"/>
-    <path fill="none" stroke="#d83427" stroke-width="4" d="M34 6h10v36H34"/>
-  </g>
-  <text x="84" y="68" fill="#171512" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="68" font-weight="600" letter-spacing="-3">Teachback</text>
+  <text x="8" y="68" fill="#171512" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="68" font-weight="600" letter-spacing="-3">T</text>
+  <path fill="none" stroke="#d83427" stroke-width="5" d="M60 15h15v56H60"/>
+  <text x="102" y="68" fill="#171512" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="68" font-weight="600" letter-spacing="-3">Teachback</text>
 </svg>
