@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">Teachback</title>
+  <desc id="description">Turn one human-handled case into a reusable, human-approved playbook.</desc>
+  <rect width="1200" height="630" fill="#fbfaf6"/>
+  <path d="M0 0h14v630H0z" fill="#d83427"/>
+  <g transform="translate(74 68) scale(1.6)">
+    <path fill="#171512" d="M4 6h26v8h-9v28h-8V14H4z"/>
+    <path fill="none" stroke="#d83427" stroke-width="4" d="M34 6h10v36H34"/>
+  </g>
+  <text x="74" y="272" fill="#171512" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="116" font-weight="600" letter-spacing="-6">Teachback</text>
+  <text x="80" y="342" fill="#59544d" font-family="Helvetica Neue, Arial, sans-serif" font-size="34">Turn one human-handled case into a reusable,</text>
+  <text x="80" y="386" fill="#59544d" font-family="Helvetica Neue, Arial, sans-serif" font-size="34">human-approved playbook.</text>
+  <path d="M80 442H1120" stroke="#d8d3ca" stroke-width="2"/>
+  <text x="80" y="506" fill="#171512" font-family="Helvetica Neue, Arial, sans-serif" font-size="25" font-weight="600">Human demonstrated</text>
+  <text x="318" y="506" fill="#a49e94" font-family="Helvetica Neue, Arial, sans-serif" font-size="25">→</text>
+  <text x="366" y="506" fill="#171512" font-family="Helvetica Neue, Arial, sans-serif" font-size="25" font-weight="600">Agent structured</text>
+  <text x="578" y="506" fill="#a49e94" font-family="Helvetica Neue, Arial, sans-serif" font-size="25">→</text>
+  <text x="626" y="506" fill="#171512" font-family="Helvetica Neue, Arial, sans-serif" font-size="25" font-weight="600">Human approved</text>
+  <text x="870" y="506" fill="#a49e94" font-family="Helvetica Neue, Arial, sans-serif" font-size="25">→</text>
+  <text x="918" y="506" fill="#d83427" font-family="Helvetica Neue, Arial, sans-serif" font-size="25" font-weight="700">Site enforced</text>
+</svg>

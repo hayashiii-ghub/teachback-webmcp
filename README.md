@@ -61,6 +61,14 @@ This client-only challenge prototype demonstrates deterministic policy enforceme
 
 The recommended 75-second recording sequence and English narration are in [`docs/demo-script.md`](docs/demo-script.md).
 
+## Brand assets
+
+- `public/brand-mark.svg` — standalone mark
+- `public/logo.svg` — horizontal wordmark
+- `public/favicon.svg` and `public/apple-touch-icon.png` — browser icons
+- `public/og.png` — 1200 × 630 social and video cover
+- `public/devpost-thumbnail.png` — 1200 × 800 Devpost thumbnail
+
 ## Design
 
 The operator UI supports English and Japanese. It follows the browser language

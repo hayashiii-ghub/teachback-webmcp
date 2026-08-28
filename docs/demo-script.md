@@ -6,6 +6,18 @@
 - Keep the Teachback UI in Japanese and use the English narration below as voiceover or burned-in subtitles.
 - Show the WebMCP-aware agent beside the site when a tool is called. Crop out unrelated browser chrome and notifications.
 - Reset the demo immediately before recording. Do not pause on loading or setup screens.
+- Use `public/og.png` as the YouTube thumbnail. Do not add a separate title-card sequence before the product appears.
+
+## Agent prompts
+
+Send these three prompts during the recording. Keep the agent panel narrow enough that Teachback remains the primary surface.
+
+1. After selecting Sofia and choosing **この対応から教える**:
+   - `Sofiaの実演を読み取り、到着が23:59までで、食事制限対応とタクシー手配を許可するプレイブック案を作ってください。公開はしないでください。`
+2. After publishing the rule and Daniel is selected:
+   - `現在選択中のDanielの予約に、公開済みルールを使った変更案だけ作ってください。まだ実行しないでください。`
+3. After selecting **変更案を承認** in Teachback:
+   - `承認済みの変更案を実行してください。`
 
 ## Shot list and narration
 
@@ -26,3 +38,5 @@
 - No reservation changes appear before human approval.
 - The final audit trail shows the demonstration, draft, publication, approval, and commit sequence.
 - The recording contains no real guest information, accounts, notifications, or unrelated tabs.
+- The public URL, favicon, logo, and Japanese UI are visible before recording begins.
+- Complete one silent rehearsal from reset through commit before starting the capture.

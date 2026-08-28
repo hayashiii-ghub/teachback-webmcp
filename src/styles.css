@@ -71,6 +71,15 @@ a:focus-visible {
 
 .brand-lockup {
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.brand-mark {
+  width: clamp(36px, 3.2vw, 44px);
+  height: clamp(36px, 3.2vw, 44px);
+  flex: 0 0 auto;
 }
 
 .brand {
