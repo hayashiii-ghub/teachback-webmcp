@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import "../src/styles.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://teachback-webmcp.haygsiiii.chatgpt.site"),
   title: "Teachback — Human-approved WebMCP playbooks",
   description:
     "一度見せた業務のやり方を、安全な条件と人の承認付きで再利用するWebMCPデモ。",
