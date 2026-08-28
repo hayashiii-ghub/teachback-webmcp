@@ -3,7 +3,6 @@ import {
   actorLabel,
   auditOperationLabel,
   auditSummaryLabel,
-  caseLabel,
   copyFor,
   fieldLabel,
   reasonLabel,
@@ -17,23 +16,24 @@ describe("Teachback UI localization", () => {
     const copy = copyFor("ja");
 
     expect(copy.eligibility).toHaveLength(7);
-    expect(caseLabel("ja", "Recorded")).toBe("教えた例");
-    expect(caseLabel("ja", "Needs review")).toBe("成功例 · 条件一致");
-    expect(caseLabel("ja", "Human only")).toBe("停止例 · 条件不一致");
-    expect(caseLabel("ja", "Resolved")).toBe("再利用済み");
     expect(statusLabel("ja", "confirmed")).toBe("確定");
-    expect(fieldLabel("ja", "Guest message")).toBe(
-      "ゲスト向け文面（英語・原文）",
-    );
+    expect(fieldLabel("ja", "Guest message")).toBe("ゲスト向け文面");
     expect(valueLabel("ja", "Meal", "Late meal box")).toBe(
       "遅い到着向けのお食事",
     );
-    expect(copy.playbookFlow).toBe("Teachbackの流れ");
+    expect(copy.playbookFlow).toBe("対応ルール");
+    expect(copy.caseUnhandled).toBe("未対応");
+    expect(copy.caseAwaitingReview).toBe("確認待ち");
+    expect(copy.caseHandled).toBe("対応済み");
+    expect(copy.nextAction).toBe("次の操作");
     expect(copy.criteriaPending).toBe("未判定");
-    expect(copy.webMcpReady).toBe("利用可能 · 5ツール");
+    expect(copy.webMcpReady).toBe("反映できます");
     expect(copy.approvalValidUntil).toBe("有効期限");
-    expect(copy.demoDataNotice).toContain("合成データ");
-    expect(copy.teachingHeadline).toContain("Agentが手順を草案化");
+    expect(copy.approvalExactOnly).toBe(
+      "この画面で承認した変更案だけを、このあと一度だけ反映できます。",
+    );
+    expect(copy.demoDataNotice).toContain("架空");
+    expect(copy.teachingHeadline).toContain("再利用ルール");
     expect(copy.demonstrationActionLabels).toHaveLength(4);
   });
 
@@ -66,7 +66,13 @@ describe("Teachback UI localization", () => {
         "ja",
         "Committed approved run run-1 to R-2048.",
       ),
-    ).toBe("teachback_commit_approved");
+    ).toBe("変更を反映");
+    expect(
+      auditSummaryLabel(
+        "ja",
+        "Drafted 7 rules from R-2050 as internal-draft-id.",
+      ),
+    ).toBe("R-2050から7つの条件を提案しました。");
   });
 
   it("localizes live announcements without changing unknown messages", () => {

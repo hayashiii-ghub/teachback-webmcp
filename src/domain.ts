@@ -1,18 +1,47 @@
 export const DEMO_DATE = "2026-08-27";
-export const SOURCE_RESERVATION_ID = "R-2041";
+export type PlaybookId = string;
 
 export type ReservationStatus = "confirmed" | "checked_in" | "cancelled";
 export type MealService = "regular_dinner" | "late_meal_box" | "none";
-export type LatestArrivalLimit = "22:00" | "23:00";
+export type LatestArrivalLimit = "22:00" | "23:00" | "23:59";
 export type TaxiHandling = "allow" | "escalate";
+export type DietaryHandling = "allow" | "escalate";
 export interface PlaybookBoundary {
   latestArrivalLimit: LatestArrivalLimit;
   taxiHandling: TaxiHandling;
-  dietaryHandling: "escalate";
+  dietaryHandling: DietaryHandling;
   compensationHandling: "escalate";
   approvalRequired: true;
 }
-export type CaseLabel = "Recorded" | "Needs review" | "Human only" | "Resolved";
+
+export type PlaybookAction =
+  | { type: "set_estimated_arrival"; from: "requestedArrivalTime" }
+  | { type: "set_meal_service"; value: "late_meal_box" }
+  | { type: "handle_dietary_request" }
+  | { type: "arrange_taxi" }
+  | {
+      type: "draft_guest_message";
+      template: "late_arrival" | "night_arrival";
+    }
+  | {
+      type: "add_shift_handoff";
+      template: "late_arrival" | "night_arrival";
+    };
+
+export interface Demonstration {
+  id: string;
+  reservationId: string;
+  playbookId: PlaybookId;
+  capturedAt: string;
+  actions: PlaybookAction[];
+}
+
+export interface PublishedPlaybook {
+  id: PlaybookId;
+  sourceDemonstrationId: Demonstration["id"];
+  boundary: PlaybookBoundary;
+  actions: PlaybookAction[];
+}
 export type RunStatus =
   | "awaiting_review"
   | "approved"
@@ -31,22 +60,30 @@ export interface Reservation {
   mealPlan: "dinner_included" | "room_only";
   mealService: MealService;
   hasNewDietaryRequest: boolean;
+  dietaryRequestHandled: boolean;
   requestsTaxi: boolean;
+  taxiArranged: boolean;
   requestsCompensation: boolean;
   guestMessageDraft: string | null;
   shiftHandoff: string | null;
   version: number;
-  label: CaseLabel;
 }
 
 export interface ProposedChange {
-  field: "Arrival" | "Meal" | "Guest message" | "Handoff";
+  field:
+    | "Arrival"
+    | "Meal"
+    | "Dietary request"
+    | "Taxi"
+    | "Guest message"
+    | "Handoff";
   before: string | null;
   after: string;
 }
 
 export interface PreparedRun {
   id: string;
+  playbookId: PlaybookId;
   reservationId: string;
   reservationVersion: number;
   before: Reservation;

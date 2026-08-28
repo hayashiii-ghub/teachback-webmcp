@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useReducer,
   useRef,
   useState,
@@ -8,16 +9,20 @@ import {
   type RefObject,
 } from "react";
 import {
-  SOURCE_RESERVATION_ID,
   type AppState,
+  type Demonstration,
+  type PlaybookId,
   type PreparedRun,
+  type PublishedPlaybook,
   type Reservation,
 } from "./domain";
 import { createInitialState } from "./fixtures";
 import {
   approveCurrentRun,
   discardCurrentRun,
+  eligibilityReasons,
   expireApprovedRun,
+  playbookForReservation,
   prepareCurrentRun,
   resetDemo,
   selectReservation,
@@ -26,29 +31,41 @@ import {
 import { registerWebMcpTools } from "./webmcp";
 import {
   AGENT_DRAFT_BOUNDARY,
+  LATE_ARRIVAL_PLAYBOOK,
+  NIGHT_ARRIVAL_PLAYBOOK,
+  PLAYBOOK_DEFINITIONS,
   createPublishedJourney,
+  activeDemonstration,
   draftIsPublishable,
   draftPlaybook,
   isTeachingJourney,
   publishPlaybook,
+  startTeachingDemonstration,
   teachingAuditEvents,
   updateDraftBoundary,
   type TeachingJourney,
 } from "./teaching";
 import {
+  demonstrationForReservation,
+  deriveCaseQueueStatus,
+  publishedPlaybookForDemonstration,
+  reservationForDemonstration,
+  type CaseQueueStatus,
+} from "./case-presentation";
+import {
   ArrowRightIcon,
+  CaretLeftIcon,
   CaretRightIcon,
   CheckIcon,
+  CircleIcon,
   CloseIcon,
 } from "./icons";
 import {
   actorLabel,
   auditOperationLabel,
   auditSummaryLabel,
-  caseLabel,
   copyFor,
   fieldLabel,
-  reasonLabel,
   statusLabel,
   systemMessageLabel,
   valueLabel,
@@ -57,7 +74,9 @@ import {
 
 const STORAGE_KEY = "teachback-demo-v1";
 const LOCALE_STORAGE_KEY = "teachback-ui-locale-v1";
-const TEACHING_STORAGE_KEY = "teachback-teaching-v2";
+const TEACHING_STORAGE_KEY = "teachback-teaching-v4";
+const TEACHING_SCENARIO_VERSION_KEY = "teachback-teaching-scenario-version";
+const TEACHING_SCENARIO_VERSION = "4";
 
 type WebMcpStatus = "checking" | "ready" | "unavailable" | "error";
 
@@ -129,15 +148,14 @@ function isReservation(value: unknown): value is Reservation {
       String(value.mealService),
     ) &&
     typeof value.hasNewDietaryRequest === "boolean" &&
+    typeof value.dietaryRequestHandled === "boolean" &&
     typeof value.requestsTaxi === "boolean" &&
+    typeof value.taxiArranged === "boolean" &&
     typeof value.requestsCompensation === "boolean" &&
     isNullableString(value.guestMessageDraft) &&
     isNullableString(value.shiftHandoff) &&
     Number.isInteger(value.version) &&
-    Number(value.version) > 0 &&
-    ["Recorded", "Needs review", "Human only", "Resolved"].includes(
-      String(value.label),
-    )
+    Number(value.version) > 0
   );
 }
 
@@ -152,7 +170,14 @@ function isPreparedRun(value: unknown): value is PreparedRun {
     value.proposedChanges.every(
       (change) =>
         isRecord(change) &&
-        ["Arrival", "Meal", "Guest message", "Handoff"].includes(
+        [
+          "Arrival",
+          "Meal",
+          "Dietary request",
+          "Taxi",
+          "Guest message",
+          "Handoff",
+        ].includes(
           String(change.field),
         ) &&
         isNullableString(change.before) &&
@@ -171,15 +196,18 @@ function isPreparedRun(value: unknown): value is PreparedRun {
     : null;
   const boundaryIsValid = Boolean(
     boundary &&
-      ["22:00", "23:00"].includes(String(boundary.latestArrivalLimit)) &&
+      ["22:00", "23:00", "23:59"].includes(
+        String(boundary.latestArrivalLimit),
+      ) &&
       ["allow", "escalate"].includes(String(boundary.taxiHandling)) &&
-      boundary.dietaryHandling === "escalate" &&
+      ["allow", "escalate"].includes(String(boundary.dietaryHandling)) &&
       boundary.compensationHandling === "escalate" &&
       boundary.approvalRequired === true,
   );
 
   return (
     typeof value.id === "string" &&
+    typeof value.playbookId === "string" &&
     typeof value.reservationId === "string" &&
     Number.isInteger(value.reservationVersion) &&
     value.before.id === value.reservationId &&
@@ -219,23 +247,11 @@ function isAppState(value: unknown): value is AppState {
   );
   const reservationIdsAreUnique =
     reservationIds.size === value.reservations.length;
-  const sourceReservations = value.reservations.filter(
-    (reservation) => reservation.id === SOURCE_RESERVATION_ID,
-  );
-  const sourceReservationIsValid =
-    sourceReservations.length === 1 &&
-    sourceReservations[0].label === "Recorded" &&
-    value.reservations.every(
-      (reservation) =>
-        reservation.id === SOURCE_RESERVATION_ID ||
-        reservation.label !== "Recorded",
-    );
   const activeRunIsValid =
     value.activeRun === null ||
     (isPreparedRun(value.activeRun) &&
       reservationIds.has(value.activeRun.reservationId) &&
-      value.activeRun.reservationId === value.selectedReservationId &&
-      value.activeRun.reservationId !== SOURCE_RESERVATION_ID);
+      value.activeRun.reservationId === value.selectedReservationId);
   const rejectionIsValid =
     value.rejection === null ||
     (isRecord(value.rejection) &&
@@ -258,7 +274,6 @@ function isAppState(value: unknown): value is AppState {
 
   return (
     reservationIdsAreUnique &&
-    sourceReservationIsValid &&
     reservationIds.has(value.selectedReservationId) &&
     activeRunIsValid &&
     rejectionIsValid &&
@@ -287,6 +302,17 @@ function loadState(): AppState {
 
 function loadTeachingJourney(): TeachingJourney {
   try {
+    if (
+      localStorage.getItem(TEACHING_SCENARIO_VERSION_KEY) !==
+      TEACHING_SCENARIO_VERSION
+    ) {
+      localStorage.removeItem(TEACHING_STORAGE_KEY);
+      localStorage.setItem(
+        TEACHING_SCENARIO_VERSION_KEY,
+        TEACHING_SCENARIO_VERSION,
+      );
+      return createPublishedJourney();
+    }
     const value = localStorage.getItem(TEACHING_STORAGE_KEY);
     if (!value) return createPublishedJourney();
     const parsed: unknown = JSON.parse(value);
@@ -325,9 +351,6 @@ function AppHeader({
         <span className="brand">Teachback</span>
       </div>
       <div className="header-actions">
-        <span className="origin-mark" lang="en">
-          Built in Japan
-        </span>
         <div
           className="language-switch"
           role="group"
@@ -366,7 +389,6 @@ function DemoIntro({ locale }: { locale: UiLocale }) {
   return (
     <section className="demo-intro" aria-label={copy.primaryPitch}>
       <strong>{copy.primaryPitch}</strong>
-      <span>{copy.demoDataNotice}</span>
     </section>
   );
 }
@@ -379,17 +401,16 @@ function JourneySteps({
   stage: TeachingJourney["stage"];
 }) {
   const copy = copyFor(locale);
-  const activeIndex = stage === "demonstration" ? 1 : stage === "draft" ? 2 : 3;
+  const activeIndex = stage === "demonstration" ? 0 : stage === "draft" ? 1 : 2;
   const steps = [
-    [copy.teachingSource, copy.teachingSourceDetail],
-    [copy.agentStructured, copy.agentStructuredDetail],
-    [copy.humanConstrained, copy.humanConstrainedDetail],
-    [copy.websiteEnforced, copy.websiteEnforcedDetail],
+    copy.teachingSource,
+    copy.agentStructured,
+    copy.humanConstrained,
   ] as const;
 
   return (
-    <ol className="journey-steps">
-      {steps.map(([title, detail], index) => (
+    <ol className="journey-steps" aria-label={copy.teachingProgress}>
+      {steps.map((title, index) => (
         <li
           className={`${index < activeIndex ? "is-complete" : ""}${
             index === activeIndex ? " is-active" : ""
@@ -397,10 +418,7 @@ function JourneySteps({
           key={title}
         >
           <span>{index + 1}</span>
-          <div>
-            <strong>{title}</strong>
-            <small>{detail}</small>
-          </div>
+          <strong>{title}</strong>
         </li>
       ))}
     </ol>
@@ -410,46 +428,70 @@ function JourneySteps({
 function TeachingWorkspace({
   locale,
   journey,
-  webMcpStatus,
+  reservation,
   onDraft,
   onBoundaryChange,
   onPublish,
-  onJump,
+  onBack,
 }: {
   locale: UiLocale;
   journey: TeachingJourney;
-  webMcpStatus: WebMcpStatus;
+  reservation: Reservation;
   onDraft(): void;
   onBoundaryChange(patch: {
-    latestArrivalLimit?: "22:00" | "23:00";
+    latestArrivalLimit?: "22:00" | "23:00" | "23:59";
     taxiHandling?: "allow" | "escalate";
+    dietaryHandling?: "allow" | "escalate";
   }): void;
   onPublish(): void;
-  onJump(): void;
+  onBack(): void;
 }) {
   const copy = copyFor(locale);
   const draft = journey.draft;
   const publishable = draftIsPublishable(journey);
+  const demonstration = activeDemonstration(journey);
+  const playbookId =
+    demonstration?.playbookId ?? draft?.playbookId ?? LATE_ARRIVAL_PLAYBOOK.id;
+  const definition =
+    PLAYBOOK_DEFINITIONS[playbookId] ?? LATE_ARRIVAL_PLAYBOOK;
+  const isNight = playbookId === NIGHT_ARRIVAL_PLAYBOOK.id;
+  const actionLabels = isNight
+    ? copy.nightDemonstrationActionLabels
+    : copy.demonstrationActionLabels;
 
   return (
-    <main className="teaching-workspace">
-      <div className="teaching-lead">
-        <span>{copy.fullDemoLabel}</span>
-        <h1>{copy.teachingHeadline}</h1>
-        <p>{copy.teachingBody}</p>
-      </div>
-      <JourneySteps locale={locale} stage={journey.stage} />
-      <div className="teaching-grid">
-        <section className="demonstration-card" aria-labelledby="demonstration-heading">
-          <div className="demonstration-heading-row">
+    <>
+      <main className="reservation-workspace teaching-source-workspace">
+        <h1 tabIndex={-1}>{reservation.guestDisplayName}</h1>
+        <div className="reservation-meta">
+          <span>{copy.reservationId}</span>
+          <strong>{reservation.id}</strong>
+          <i aria-hidden="true" />
+          <span>{copy.status}</span>
+          <strong>{statusLabel(locale, reservation.status)}</strong>
+          <i aria-hidden="true" />
+          <span>{copy.arrival}</span>
+          <strong>
+            {reservation.arrivalDate === "2026-08-27"
+              ? copy.today
+              : reservation.arrivalDate}
+          </strong>
+        </div>
+        <section className="teaching-record" aria-labelledby="demonstration-heading">
+          <div className="teaching-record-heading">
             <div>
-              <span>{copy.demonstratedActionsDetail}</span>
+              <span>
+                {isNight
+                  ? copy.nightDemonstratedActionsDetail
+                  : copy.demonstratedActionsDetail}
+              </span>
               <h2 id="demonstration-heading">{copy.demonstratedActions}</h2>
             </div>
-            <strong>R-2041 · Aiko Tanaka</strong>
+            <strong>{reservation.id}</strong>
           </div>
+          <p>{isNight ? copy.nightRecordedTeachingBody : copy.recordedTeachingBody}</p>
           <ol>
-            {copy.demonstrationActionLabels.map((action, index) => (
+            {actionLabels.map((action, index) => (
               <li key={action}>
                 <span>{index + 1}</span>
                 <strong>{action}</strong>
@@ -457,43 +499,56 @@ function TeachingWorkspace({
             ))}
           </ol>
         </section>
-        <aside className="teaching-panel">
-          <WebMcpAvailability locale={locale} status={webMcpStatus} />
+      </main>
+      <aside className="review-panel teaching-rule-panel">
+        <div className="teaching-rule-inner">
+          <h2>{copy.teachingPanelHeading}</h2>
+          <JourneySteps locale={locale} stage={journey.stage} />
           {journey.stage === "demonstration" ? (
             <div className="draft-start">
-              <h2>{copy.agentDraftHeading}</h2>
               <p>{copy.agentDraftBody}</p>
+              <section className="teaching-rule-summary" aria-label={copy.teachingRuleLabel}>
+                <span>{copy.teachingRuleLabel}</span>
+                <h3>{isNight ? copy.nightPlaybookName : copy.playbookName}</h3>
+                <p>{isNight ? copy.nightTeachingRuleDescription : copy.teachingRuleDescription}</p>
+              </section>
+              <dl className="teaching-rule-facts">
+                <div>
+                  <dt>{copy.teachingAppliesTo}</dt>
+                  <dd>{isNight ? copy.nightTeachingAppliesToValue : copy.teachingAppliesToValue}</dd>
+                </div>
+                <div>
+                  <dt>{copy.teachingActionCount}</dt>
+                  <dd>{actionLabels.length}{copy.teachingCountUnit}</dd>
+                </div>
+                <div>
+                  <dt>{copy.teachingRuleCount}</dt>
+                  <dd>{definition.ruleCount}{copy.teachingCountUnit}</dd>
+                </div>
+              </dl>
               <button className="primary-action" type="button" onClick={onDraft}>
                 {copy.createAgentDraft}
               </button>
-              <p className="action-note">{copy.createAgentDraftNote}</p>
-              <div className="tool-proof">
-                <code>teachback_get_latest_demonstration</code>
-                <code>teachback_submit_playbook_draft</code>
-              </div>
-              <div className="jump-reuse">
-                <button className="text-button" type="button" onClick={onJump}>
-                  {copy.jumpToReuse}
-                </button>
-                <span>{copy.jumpToReuseDetail}</span>
-              </div>
             </div>
           ) : draft ? (
             <div className="boundary-review">
               <h2>{copy.boundaryReviewHeading}</h2>
-              <p>{copy.boundaryReviewBody}</p>
+              <p>
+                {isNight ? copy.nightBoundaryReviewBody : copy.boundaryReviewBody}
+              </p>
               <div className="draft-rules-heading">
                 <strong>{copy.draftRules}</strong>
                 <span>{copy.agentProposal}</span>
               </div>
               <ul className="fixed-rules">
-                {copy.fixedRuleLabels.map((rule) => (
+                {(isNight ? copy.nightFixedRuleLabels : copy.fixedRuleLabels).map((rule) => (
                   <li key={rule}>
                     <CheckIcon className="check-icon" />
                     <span>{rule}</span>
                   </li>
                 ))}
               </ul>
+              {!isNight ? <>
               <div
                 className={`boundary-control${
                   draft.boundary.latestArrivalLimit === "22:00" ? " is-safe" : " is-risky"
@@ -529,9 +584,15 @@ function TeachingWorkspace({
                   }
                 >
                   <option value="allow">{copy.taxiAllow} · {copy.agentProposal}</option>
-                  <option value="escalate">{copy.taxiEscalate} · {copy.humanBoundary}</option>
-                </select>
+                <option value="escalate">{copy.taxiEscalate} · {copy.humanBoundary}</option>
+              </select>
               </div>
+              </> : (
+                <div className="night-boundary-summary">
+                  <strong>{definition.boundary.latestArrivalLimit}</strong>
+                  <span>{copy.nightAgentDraftNote}</span>
+                </div>
+              )}
               <button
                 className="primary-action"
                 type="button"
@@ -545,19 +606,12 @@ function TeachingWorkspace({
               </p>
             </div>
           ) : null}
-        </aside>
-      </div>
-    </main>
-  );
-}
-
-function JourneyProof({ locale }: { locale: UiLocale }) {
-  const copy = copyFor(locale);
-  return (
-    <section className="journey-proof" aria-label={copy.journeyProof}>
-      <strong>{copy.journeyProof}</strong>
-      <span>{copy.journeyProofSummary}</span>
-    </section>
+          <button className="teaching-back" type="button" onClick={onBack}>
+            {copy.backToReservation}
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
 
@@ -566,53 +620,198 @@ function CaseQueue({
   reservations,
   selectedId,
   activeRun,
+  rejectedReservationId,
+  demonstrations,
+  publishedPlaybooks,
   onSelect,
 }: {
   locale: UiLocale;
   reservations: Reservation[];
   selectedId: string;
   activeRun: PreparedRun | null;
+  rejectedReservationId: string | null;
+  demonstrations: Demonstration[];
+  publishedPlaybooks: PublishedPlaybook[];
   onSelect(id: string): void;
 }) {
   const copy = copyFor(locale);
+  const listRef = useRef<HTMLUListElement>(null);
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filteredReservations = normalizedQuery
+    ? reservations.filter((reservation) =>
+        `${reservation.id} ${reservation.guestDisplayName}`
+          .toLocaleLowerCase()
+          .includes(normalizedQuery),
+      )
+    : reservations;
+  const filteredReservationIds = filteredReservations
+    .map((reservation) => reservation.id)
+    .join("|");
+  const firstFilteredReservationId = filteredReservations[0]?.id ?? null;
+  const selectedReservationIsVisible = filteredReservations.some(
+    (reservation) => reservation.id === selectedId,
+  );
+  const [railState, setRailState] = useState({
+    canScrollBack: false,
+    canScrollForward: false,
+  });
+
+  useEffect(() => {
+    if (!firstFilteredReservationId || selectedReservationIsVisible) return;
+    onSelect(firstFilteredReservationId);
+  }, [firstFilteredReservationId, onSelect, selectedReservationIsVisible]);
+
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const updateRailState = () => {
+      const maxScrollLeft = Math.max(0, list.scrollWidth - list.clientWidth);
+      const nextState = {
+        canScrollBack: list.scrollLeft > 1,
+        canScrollForward: list.scrollLeft < maxScrollLeft - 1,
+      };
+      setRailState((current) =>
+        current.canScrollBack === nextState.canScrollBack &&
+        current.canScrollForward === nextState.canScrollForward
+          ? current
+          : nextState,
+      );
+    };
+    const revealSelected = () => {
+      const selected = list.querySelector<HTMLElement>(
+        '.case-item[aria-current="true"]',
+      );
+      const item = selected?.closest<HTMLElement>("li");
+      if (!item) return;
+      const itemLeft = item.offsetLeft;
+      const itemRight = itemLeft + item.offsetWidth;
+      const visibleLeft = list.scrollLeft;
+      const visibleRight = visibleLeft + list.clientWidth;
+      if (itemLeft < visibleLeft || itemRight > visibleRight) {
+        list.scrollTo({
+          left: Math.max(0, itemLeft - (list.clientWidth - item.offsetWidth) / 2),
+          behavior: "auto",
+        });
+      }
+      updateRailState();
+    };
+
+    revealSelected();
+    const resizeObserver = new ResizeObserver(() => {
+      revealSelected();
+      updateRailState();
+    });
+    resizeObserver.observe(list);
+    list.addEventListener("scroll", updateRailState, { passive: true });
+    return () => {
+      resizeObserver.disconnect();
+      list.removeEventListener("scroll", updateRailState);
+    };
+  }, [filteredReservationIds, selectedId]);
+
+  const scrollCases = useCallback((direction: -1 | 1) => {
+    const list = listRef.current;
+    if (!list) return;
+    list.scrollBy({
+      left: direction * Math.max(240, list.clientWidth * 0.72),
+      behavior: "smooth",
+    });
+  }, []);
 
   return (
     <nav className="case-queue" aria-label={copy.cases}>
-      <h2>{copy.cases}</h2>
-      <ul className="case-list">
-        {reservations.map((reservation) => {
-          const selected = reservation.id === selectedId;
-          const runForReservation =
-            activeRun?.reservationId === reservation.id ? activeRun : null;
-          const stateLabel =
-            runForReservation?.status === "awaiting_review"
-              ? copy.caseAwaitingApproval
-              : runForReservation?.status === "approved"
-                ? copy.caseReadyToCommit
-                : runForReservation?.status === "stale"
-                  ? copy.caseApprovalExpired
-                  : caseLabel(locale, reservation.label);
-          return (
-            <li key={reservation.id}>
-              <button
-                className={`case-item${selected ? " is-selected" : ""}`}
-                type="button"
-                aria-current={selected ? "true" : undefined}
-                onClick={() => onSelect(reservation.id)}
-              >
-                <span className="case-primary">
-                  <span>{reservation.id}</span>
-                  <span>{reservation.guestDisplayName}</span>
-                </span>
-                <span className="case-secondary">
-                  {stateLabel}
-                </span>
-                <CaretRightIcon className="case-caret" />
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="case-queue-header">
+        <div className="case-queue-title">
+          <h2>{copy.cases}</h2>
+          <span aria-live="polite">
+            {locale === "ja"
+              ? `${filteredReservations.length}/${reservations.length}${copy.caseCountUnit}`
+              : `${filteredReservations.length}/${reservations.length} ${copy.caseCountUnit}`}
+          </span>
+        </div>
+        <label className="case-search">
+          <span className="sr-only">{copy.caseSearch}</span>
+          <input
+            type="search"
+            value={query}
+            placeholder={copy.caseSearchPlaceholder}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+      </div>
+      {filteredReservations.length > 0 ? (
+        <div className="case-list-wrap">
+          <ul className="case-list" id="case-list" ref={listRef}>
+            {filteredReservations.map((reservation) => {
+            const selected = reservation.id === selectedId;
+            const runForReservation =
+              activeRun?.reservationId === reservation.id ? activeRun : null;
+            const runStateClass =
+              runForReservation?.status === "approved" ||
+              runForReservation?.status === "committed"
+                ? " has-approved-state"
+                : runForReservation?.status === "awaiting_review"
+                  ? " has-awaiting-state"
+                  : "";
+            const status = deriveCaseQueueStatus({
+              reservation,
+              demonstrations,
+              publishedPlaybooks,
+              activeRun,
+              rejectedReservationId,
+            });
+            const labels: Record<CaseQueueStatus, string> = {
+              unhandled: copy.caseUnhandled,
+              awaiting_review: copy.caseAwaitingReview,
+              handled: copy.caseHandled,
+            };
+            const stateLabel = labels[status];
+            return (
+              <li key={reservation.id}>
+                <button
+                  className={`case-item${selected ? " is-selected" : ""}${runStateClass}`}
+                  type="button"
+                  aria-current={selected ? "true" : undefined}
+                  onClick={() => onSelect(reservation.id)}
+                >
+                  <span className="case-primary">
+                    <span>{reservation.id}</span>
+                    <span>{reservation.guestDisplayName}</span>
+                  </span>
+                  <span className="case-secondary">{stateLabel}</span>
+                  <CaretRightIcon className="case-caret" />
+                </button>
+              </li>
+            );
+            })}
+          </ul>
+          {railState.canScrollBack ? (
+            <button
+              className="case-rail-control is-back"
+              type="button"
+              aria-label={copy.previousCases}
+              aria-controls="case-list"
+              onClick={() => scrollCases(-1)}
+            >
+              <CaretLeftIcon />
+            </button>
+          ) : null}
+          {railState.canScrollForward ? (
+            <button
+              className="case-rail-control is-forward"
+              type="button"
+              aria-label={copy.nextCases}
+              aria-controls="case-list"
+              onClick={() => scrollCases(1)}
+            >
+              <CaretRightIcon />
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <p className="case-empty">{copy.noMatchingCases}</p>
+      )}
     </nav>
   );
 }
@@ -620,36 +819,34 @@ function CaseQueue({
 function PlaybookFlow({
   locale,
   sourceReservation,
-  currentReservation,
+  playbook,
 }: {
   locale: UiLocale;
-  sourceReservation: Reservation;
-  currentReservation: Reservation;
+  sourceReservation: Reservation | null;
+  playbook: PublishedPlaybook | null;
 }) {
   const copy = copyFor(locale);
-  const viewingSource = sourceReservation.id === currentReservation.id;
+
+  if (!playbook || !sourceReservation) {
+    return (
+      <section className="playbook-flow is-unmatched" aria-label={copy.playbookFlow}>
+        <span>{copy.noMatchingPlaybook}</span>
+      </section>
+    );
+  }
+
+  const name =
+    playbook.id === NIGHT_ARRIVAL_PLAYBOOK.id
+      ? copy.nightPlaybookName
+      : copy.playbookName;
 
   return (
     <section className="playbook-flow" aria-label={copy.playbookFlow}>
-      <div className="playbook-flow-step">
-        <span>{copy.taughtFrom}</span>
-        <strong>
-          {sourceReservation.id} · {sourceReservation.guestDisplayName}
-        </strong>
-      </div>
-      <ArrowRightIcon className="playbook-flow-arrow" />
-      <div className="playbook-flow-step is-playbook">
-        <span>{copy.boundedPlaybook}</span>
-        <strong lang="en">{copy.playbookName}</strong>
-        <small>{copy.playbookBoundarySummary}</small>
-      </div>
-      <ArrowRightIcon className="playbook-flow-arrow" />
-      <div className="playbook-flow-step is-current">
-        <span>{viewingSource ? copy.viewingSource : copy.reusingFor}</span>
-        <strong>
-          {currentReservation.id} · {currentReservation.guestDisplayName}
-        </strong>
-      </div>
+      <span>{copy.playbookOrigin}</span>
+      <strong>{sourceReservation.id}</strong>
+      <i aria-hidden="true">·</i>
+      <strong lang={locale === "en" ? "en" : undefined}>{name}</strong>
+      <small>{copy.playbookBoundarySummary}</small>
     </section>
   );
 }
@@ -683,25 +880,43 @@ function ReservationFacts({
   );
 }
 
-function EmptyWorkspace({ locale }: { locale: UiLocale }) {
+function EmptyWorkspace({
+  locale,
+  hasPlaybook,
+}: {
+  locale: UiLocale;
+  hasPlaybook: boolean;
+}) {
   const copy = copyFor(locale);
 
   return (
     <section className="empty-workspace" aria-labelledby="ready-heading">
-      <h2 id="ready-heading">{copy.readyHeading}</h2>
-      <p>{copy.readyBody}</p>
+      <h2 id="ready-heading">
+        {hasPlaybook ? copy.readyHeading : copy.unmatchedHeading}
+      </h2>
+      <p>{hasPlaybook ? copy.readyBody : copy.unmatchedBody}</p>
     </section>
   );
 }
 
-function RecordedWorkspace({ locale }: { locale: UiLocale }) {
+function RecordedWorkspace({
+  locale,
+  canTeach,
+}: {
+  locale: UiLocale;
+  canTeach: boolean;
+}) {
   const copy = copyFor(locale);
 
   return (
     <section className="recorded-workspace" aria-labelledby="recorded-heading">
-      <span className="recorded-kicker">{copy.sourceCaseLabel}</span>
-      <h2 id="recorded-heading">{copy.recordedHeading}</h2>
-      <p>{copy.recordedBody}</p>
+      <span className="recorded-kicker">
+        {copy.sourceCaseLabel}
+      </span>
+      <h2 id="recorded-heading">
+        {canTeach ? copy.unlearnedRecordedHeading : copy.recordedHeading}
+      </h2>
+      <p>{canTeach ? copy.unlearnedRecordedBody : copy.recordedBody}</p>
     </section>
   );
 }
@@ -770,24 +985,13 @@ function ProposedChanges({
   );
 }
 
-function RejectedResult({
-  locale,
-  reasons,
-}: {
-  locale: UiLocale;
-  reasons: string[];
-}) {
+function RejectedResult({ locale }: { locale: UiLocale }) {
   const copy = copyFor(locale);
 
   return (
     <section className="rejected-result" role="alert" aria-labelledby="rejected-heading">
       <h2 id="rejected-heading">{copy.humanReviewRequired}</h2>
-      <ul>
-        {reasons.map((reason) => (
-          <li key={reason}>{reasonLabel(locale, reason)}</li>
-        ))}
-      </ul>
-      <p>{copy.noChanges}</p>
+      <p>{copy.noProposalCreated}</p>
     </section>
   );
 }
@@ -795,13 +999,17 @@ function RejectedResult({
 function ReservationWorkspace({
   locale,
   sourceReservation,
+  playbook,
+  canTeach,
   isSourceCase,
   reservation,
   run,
   rejectionReasons,
 }: {
   locale: UiLocale;
-  sourceReservation: Reservation;
+  sourceReservation: Reservation | null;
+  playbook: PublishedPlaybook | null;
+  canTeach: boolean;
   isSourceCase: boolean;
   reservation: Reservation;
   run: PreparedRun | null;
@@ -829,17 +1037,17 @@ function ReservationWorkspace({
       <PlaybookFlow
         locale={locale}
         sourceReservation={sourceReservation}
-        currentReservation={reservation}
+        playbook={playbook}
       />
       <ReservationFacts locale={locale} reservation={reservation} />
       {isSourceCase ? (
-        <RecordedWorkspace locale={locale} />
+        <RecordedWorkspace locale={locale} canTeach={canTeach} />
       ) : rejectionReasons ? (
-        <RejectedResult locale={locale} reasons={rejectionReasons} />
+        <RejectedResult locale={locale} />
       ) : run && run.status !== "discarded" ? (
         <ProposedChanges locale={locale} run={run} />
       ) : (
-        <EmptyWorkspace locale={locale} />
+        <EmptyWorkspace locale={locale} hasPlaybook={Boolean(playbook)} />
       )}
     </main>
   );
@@ -911,12 +1119,10 @@ function ApprovalStatus({
       <div className="approval-status-title">
         <CheckIcon className="approval-status-icon" />
         <div>
-          <span>{copy.approvedReady}</span>
-          <strong>
-            {webMcpStatus === "ready"
-              ? copy.approvedWithWebMcp
-              : copy.approvedWithoutWebMcp}
-          </strong>
+          <strong>{copy.approvedReady}</strong>
+          {webMcpStatus === "ready" ? null : (
+            <span>{copy.approvedWithoutWebMcp}</span>
+          )}
         </div>
       </div>
       {validExpiry ? (
@@ -951,15 +1157,15 @@ function ApprovalScope({
         </div>
         <div>
           <dt>{copy.approvalFields}</dt>
-          <dd>{copy.approvalFieldsValue}</dd>
+          <dd>
+            {run.proposedChanges
+              .map((change) => fieldLabel(locale, change.field))
+              .join(locale === "ja" ? "・" : ", ")}
+          </dd>
         </div>
         <div>
           <dt>{copy.approvalLimit}</dt>
           <dd>{copy.approvalLimitValue}</dd>
-        </div>
-        <div>
-          <dt>{copy.approvalTool}</dt>
-          <dd><code>teachback_commit_approved</code></dd>
         </div>
       </dl>
     </section>
@@ -969,6 +1175,8 @@ function ApprovalScope({
 function ReviewPanel({
   locale,
   isSourceCase,
+  canTeach,
+  playbookId,
   webMcpStatus,
   run,
   rejectionReasons,
@@ -976,9 +1184,12 @@ function ReviewPanel({
   onApprove,
   onDiscard,
   onAudit,
+  onTeach,
 }: {
   locale: UiLocale;
   isSourceCase: boolean;
+  canTeach: boolean;
+  playbookId: PlaybookId | null;
   webMcpStatus: WebMcpStatus;
   run: PreparedRun | null;
   rejectionReasons: string[] | null;
@@ -986,6 +1197,7 @@ function ReviewPanel({
   onApprove(): void;
   onDiscard(): void;
   onAudit(event: ReactMouseEvent<HTMLButtonElement>): void;
+  onTeach(): void;
 }) {
   const copy = copyFor(locale);
   const isAwaiting = run?.status === "awaiting_review";
@@ -997,6 +1209,16 @@ function ReviewPanel({
   const criteriaPassed = Boolean(run && !isDiscarded);
   const showCriteriaSummary = isApproved || isCommitted || isStale;
   const failedCriteria = new Set<number>();
+  const eligibility =
+    playbookId === NIGHT_ARRIVAL_PLAYBOOK.id
+      ? copy.nightEligibility
+      : copy.eligibility;
+  const reviewHeading =
+    isSourceCase && !canTeach
+      ? copy.playbookFlow
+      : isSourceCase || !playbookId
+        ? copy.nextAction
+        : copy.review;
   rejectionReasons?.forEach((reason) => {
     const index = FAILED_CRITERION_BY_REASON[reason];
     if (index !== undefined) failedCriteria.add(index);
@@ -1005,8 +1227,8 @@ function ReviewPanel({
   return (
     <aside className="review-panel" aria-labelledby="review-heading">
       <div className="review-heading-row">
-        <h2 id="review-heading">{copy.review}</h2>
-        {!isSourceCase ? (
+        <h2 id="review-heading">{reviewHeading}</h2>
+        {!isSourceCase && playbookId && !showCriteriaSummary ? (
           <span
             className={`criteria-state${
               isRejected
@@ -1024,16 +1246,30 @@ function ReviewPanel({
           </span>
         ) : null}
       </div>
-      <WebMcpAvailability locale={locale} status={webMcpStatus} />
+      {!playbookId || webMcpStatus === "ready" || isApproved ? null : (
+        <WebMcpAvailability locale={locale} status={webMcpStatus} />
+      )}
       {isSourceCase ? (
         <div className="source-case-note">
-          <strong>{copy.sourceCaseLabel}</strong>
-          <p>{copy.sourceCaseBody}</p>
+          <strong>
+            {copy.sourceCaseLabel}
+          </strong>
+          <p>{canTeach ? copy.unlearnedSourceCaseBody : copy.sourceCaseBody}</p>
+          {canTeach ? (
+            <button className="primary-action" type="button" onClick={onTeach}>
+              {copy.teachThisCase}
+            </button>
+          ) : null}
+        </div>
+      ) : !playbookId ? (
+        <div className="source-case-note">
+          <strong>{copy.unmatchedHeading}</strong>
+          <p>{copy.unmatchedBody}</p>
         </div>
       ) : isRejected ? (
         <>
           <ul className="eligibility-list" id="approval-criteria">
-            {copy.eligibility.map((item, index) => {
+            {eligibility.map((item, index) => {
               const failed = failedCriteria.has(index);
               return (
                 <li className={failed ? "is-failed" : "is-passed"} key={item}>
@@ -1053,7 +1289,6 @@ function ReviewPanel({
           <div className="review-rejected">
             <CloseIcon className="rejected-icon" />
             <strong>{copy.outsideBoundary}</strong>
-            <p>{copy.refusedPreparation}</p>
           </div>
         </>
       ) : showCriteriaSummary ? (
@@ -1063,12 +1298,12 @@ function ReviewPanel({
         </div>
       ) : (
         <ul className="eligibility-list" id="approval-criteria">
-          {copy.eligibility.map((item) => (
+          {eligibility.map((item) => (
             <li className={criteriaPassed ? "is-passed" : "is-pending"} key={item}>
               {criteriaPassed ? (
                 <CheckIcon className="check-icon" />
               ) : (
-                <span className="pending-icon" aria-hidden="true" />
+                <CircleIcon className="pending-icon" />
               )}
               <span>{item}</span>
               <span className="sr-only">
@@ -1078,14 +1313,9 @@ function ReviewPanel({
           ))}
         </ul>
       )}
-      {!isSourceCase && !isRejected ? (
-        <div className="approval-step" aria-hidden="true">
-          <span />
-        </div>
-      ) : null}
       {isAwaiting && run ? <ApprovalScope locale={locale} run={run} /> : null}
       <div className="review-actions">
-        {!isSourceCase && !isRejected ? (
+        {!isSourceCase && playbookId && !isRejected ? (
           <>
             {(!run || isDiscarded) ? (
               <>
@@ -1140,10 +1370,13 @@ function ReviewPanel({
             ) : null}
           </>
         ) : null}
+      </div>
+      <footer className="demo-footnote">
+        <span>{copy.demoDataNotice}</span>
         <button className="text-button audit-link" type="button" onClick={onAudit}>
           {copy.viewAudit}
         </button>
-      </div>
+      </footer>
     </aside>
   );
 }
@@ -1247,7 +1480,9 @@ function AuditDrawer({
             <li key={event.id}>
               <strong>{actorLabel(locale, event.actor)}</strong>
               <div className="audit-event-body">
-                <code>{auditOperationLabel(locale, event.summary)}</code>
+                <span className="audit-event-type">
+                  {auditOperationLabel(locale, event.summary)}
+                </span>
                 <span>{auditSummaryLabel(locale, event.summary)}</span>
               </div>
               <time dateTime={event.at}>
@@ -1328,8 +1563,25 @@ export default function App() {
   }, [state]);
 
   useEffect(() => {
-    journeyRef.current = journey;
     try {
+      if (
+        localStorage.getItem(TEACHING_SCENARIO_VERSION_KEY) !==
+        TEACHING_SCENARIO_VERSION
+      ) {
+        const initialJourney = createPublishedJourney();
+        journeyRef.current = initialJourney;
+        localStorage.setItem(
+          TEACHING_SCENARIO_VERSION_KEY,
+          TEACHING_SCENARIO_VERSION,
+        );
+        localStorage.setItem(
+          TEACHING_STORAGE_KEY,
+          JSON.stringify(initialJourney),
+        );
+        setJourney(initialJourney);
+        return;
+      }
+      journeyRef.current = journey;
       localStorage.setItem(TEACHING_STORAGE_KEY, JSON.stringify(journey));
     } catch {
       // Persistence is optional; the teaching journey remains usable in memory.
@@ -1405,22 +1657,70 @@ export default function App() {
   }, [approvedRunId, approvalExpiresAt, commitState]);
 
   const reservation = selectedReservation(state);
-  const sourceReservation =
-    state.reservations.find(
-      (candidate) => candidate.id === SOURCE_RESERVATION_ID,
-    ) ?? state.reservations[0];
-  const isSourceCase = reservation.id === SOURCE_RESERVATION_ID;
+  const sourceDemonstration = demonstrationForReservation(
+    journey.demonstrations,
+    reservation.id,
+  );
+  const isSourceCase = sourceDemonstration !== null;
   const visibleRun =
     state.activeRun?.reservationId === reservation.id ? state.activeRun : null;
   const rejectionReasons =
     state.rejection?.reservationId === reservation.id
       ? state.rejection.reasons
       : null;
+  const applicablePlaybook = isSourceCase
+    ? sourceDemonstration
+      ? publishedPlaybookForDemonstration(
+          journey.publishedPlaybooks,
+          sourceDemonstration.id,
+        )
+      : null
+    : journey.publishedPlaybooks.find(
+        (playbook) => eligibilityReasons(reservation, playbook.boundary).length === 0,
+      ) ?? null;
+  const visiblePlaybook = visibleRun
+    ? journey.publishedPlaybooks.find(
+        (playbook) => playbook.id === visibleRun.playbookId,
+      ) ?? applicablePlaybook
+    : applicablePlaybook;
+  const sourceReservation = visiblePlaybook
+    ? reservationForDemonstration(
+        state.reservations,
+        visiblePlaybook.sourceDemonstrationId,
+        journey.demonstrations,
+      )
+    : isSourceCase
+      ? reservation
+      : null;
+  const canTeach =
+    sourceDemonstration !== null &&
+    !publishedPlaybookForDemonstration(
+      journey.publishedPlaybooks,
+      sourceDemonstration.id,
+    );
+  const teachingDemonstration =
+    activeDemonstration(journey) ??
+    (journey.draft
+      ? journey.demonstrations.find(
+          (candidate) =>
+            candidate.id === journey.draft?.sourceDemonstrationId,
+        ) ?? null
+      : null);
+  const teachingReservation =
+    teachingDemonstration
+      ? state.reservations.find(
+          (candidate) =>
+            candidate.id === teachingDemonstration.reservationId,
+        ) ?? reservation
+      : reservation;
 
   const prepare = useCallback(async () => {
     const sourceState = stateRef.current;
-    const boundary = journeyRef.current.publishedBoundary;
-    if (!boundary) {
+    const playbook = playbookForReservation(
+      selectedReservation(sourceState),
+      journeyRef.current.publishedPlaybooks,
+    );
+    if (!playbook) {
       setAnnouncement(
         systemMessageLabel(
           localeRef.current,
@@ -1429,7 +1729,7 @@ export default function App() {
       );
       return;
     }
-    const prepared = await prepareCurrentRun(sourceState, new Date(), boundary);
+    const prepared = await prepareCurrentRun(sourceState, new Date(), playbook);
     if (!commitState(sourceState, prepared.state, prepared.result.summary)) {
       setAnnouncement(
         systemMessageLabel(
@@ -1464,14 +1764,20 @@ export default function App() {
 
   const createDraft = useCallback(() => {
     const source = journeyRef.current;
-    const drafted = draftPlaybook(source, AGENT_DRAFT_BOUNDARY);
+    const demonstration = activeDemonstration(source);
+    const boundary = demonstration
+      ? PLAYBOOK_DEFINITIONS[demonstration.playbookId]?.agentDraftBoundary ??
+        AGENT_DRAFT_BOUNDARY
+      : AGENT_DRAFT_BOUNDARY;
+    const drafted = draftPlaybook(source, boundary);
     commitTeachingJourney(source, drafted.state, drafted.result.summary);
   }, [commitTeachingJourney]);
 
   const changeDraftBoundary = useCallback(
     (patch: {
-      latestArrivalLimit?: "22:00" | "23:00";
+      latestArrivalLimit?: "22:00" | "23:00" | "23:59";
       taxiHandling?: "allow" | "escalate";
+      dietaryHandling?: "allow" | "escalate";
     }) => {
       const source = journeyRef.current;
       const next = updateDraftBoundary(source, patch);
@@ -1481,9 +1787,14 @@ export default function App() {
   );
 
   const enterReuse = useCallback(
-    (published: TeachingJourney, message: string) => {
-      const nextState = {
+    (
+      published: TeachingJourney,
+      message: string,
+      selectedReservationId = "R-2048",
+    ) => {
+      const nextState: AppState = {
         ...createInitialState(),
+        selectedReservationId,
         audit: teachingAuditEvents(published),
       };
       journeyRef.current = published;
@@ -1494,22 +1805,88 @@ export default function App() {
   );
 
   const publishDraft = useCallback(() => {
-    const published = publishPlaybook(journeyRef.current);
+    const source = journeyRef.current;
+    const publishingPlaybookId = source.draft?.playbookId;
+    const published = publishPlaybook(source);
     if (!published.result.ok) {
       setAnnouncement(
         systemMessageLabel(localeRef.current, published.result.summary),
       );
       return;
     }
-    enterReuse(published.state, published.result.summary);
-  }, [enterReuse]);
-
-  const jumpToReuse = useCallback(() => {
+    const newlyPublished = published.state.publishedPlaybooks.find(
+      (playbook) => playbook.id === publishingPlaybookId,
+    );
+    const nextReservation = newlyPublished
+      ? stateRef.current.reservations.find((candidate) => {
+          if (
+            demonstrationForReservation(
+              published.state.demonstrations,
+              candidate.id,
+            )
+          ) {
+            return false;
+          }
+          const matchesNewRule =
+            eligibilityReasons(candidate, newlyPublished.boundary).length === 0;
+          const matchedBefore = source.publishedPlaybooks.some(
+            (playbook) =>
+              eligibilityReasons(candidate, playbook.boundary).length === 0,
+          );
+          return matchesNewRule && !matchedBefore;
+        })
+      : null;
     enterReuse(
-      createPublishedJourney(),
-      "Late Arrival Care v1 was published with human-set boundaries.",
+      published.state,
+      published.result.summary,
+      nextReservation?.id ?? stateRef.current.selectedReservationId,
     );
   }, [enterReuse]);
+
+  const teachCurrentPattern = useCallback(() => {
+    const source = journeyRef.current;
+    const demonstration = demonstrationForReservation(
+      source.demonstrations,
+      stateRef.current.selectedReservationId,
+    );
+    if (!demonstration) return;
+    const next = startTeachingDemonstration(source, demonstration.id);
+    commitTeachingJourney(
+      source,
+      next,
+      `Selected ${demonstration.reservationId} as a teaching source.`,
+    );
+  }, [commitTeachingJourney]);
+
+  const leaveTeaching = useCallback(() => {
+    const source = journeyRef.current;
+    const next: TeachingJourney = {
+      ...source,
+      stage: "reuse",
+      teachingDemonstrationId: null,
+      draft: null,
+    };
+    commitTeachingJourney(source, next, "Returned to reservation details.");
+  }, [commitTeachingJourney]);
+
+  const selectWhileTeaching = useCallback(
+    (reservationId: string) => {
+      const source = journeyRef.current;
+      const next: TeachingJourney = {
+        ...source,
+        stage: "reuse",
+        teachingDemonstrationId: null,
+        draft: null,
+      };
+      journeyRef.current = next;
+      setJourney(next);
+      replaceState(
+        selectReservation(stateRef.current, reservationId),
+        `Selected reservation ${reservationId}.`,
+      );
+    },
+    [replaceState],
+  );
 
   const select = useCallback(
     (reservationId: string) => {
@@ -1544,21 +1921,31 @@ export default function App() {
           onLocaleChange={changeLocale}
           onReset={reset}
         />
-        {journey.stage === "reuse" ? (
-          <>
-            <DemoIntro locale={locale} />
-            <JourneyProof locale={locale} />
-            <div className="app-grid">
-              <CaseQueue
-                locale={locale}
-                reservations={state.reservations}
-                selectedId={state.selectedReservationId}
-                activeRun={state.activeRun}
-                onSelect={select}
-              />
+        <div className="product-context-row">
+          <DemoIntro locale={locale} />
+        </div>
+        <div className={`app-grid${journey.stage === "reuse" ? "" : " is-teaching"}`}>
+          <CaseQueue
+            locale={locale}
+            reservations={state.reservations}
+            selectedId={
+              journey.stage === "reuse"
+                ? state.selectedReservationId
+                : teachingReservation.id
+            }
+            activeRun={state.activeRun}
+            rejectedReservationId={state.rejection?.reservationId ?? null}
+            demonstrations={journey.demonstrations}
+            publishedPlaybooks={journey.publishedPlaybooks}
+            onSelect={journey.stage === "reuse" ? select : selectWhileTeaching}
+          />
+          {journey.stage === "reuse" ? (
+            <>
               <ReservationWorkspace
                 locale={locale}
                 sourceReservation={sourceReservation}
+                playbook={visiblePlaybook}
+                canTeach={canTeach}
                 isSourceCase={isSourceCase}
                 reservation={reservation}
                 run={visibleRun}
@@ -1567,6 +1954,8 @@ export default function App() {
               <ReviewPanel
                 locale={locale}
                 isSourceCase={isSourceCase}
+                canTeach={canTeach}
+                playbookId={visiblePlaybook?.id ?? null}
                 webMcpStatus={webMcpStatus}
                 run={visibleRun}
                 rejectionReasons={rejectionReasons}
@@ -1574,20 +1963,21 @@ export default function App() {
                 onApprove={approve}
                 onDiscard={discard}
                 onAudit={openAudit}
+                onTeach={teachCurrentPattern}
               />
-            </div>
-          </>
-        ) : (
-          <TeachingWorkspace
-            locale={locale}
-            journey={journey}
-            webMcpStatus={webMcpStatus}
-            onDraft={createDraft}
-            onBoundaryChange={changeDraftBoundary}
-            onPublish={publishDraft}
-            onJump={jumpToReuse}
-          />
-        )}
+            </>
+          ) : (
+            <TeachingWorkspace
+              locale={locale}
+              journey={journey}
+              reservation={teachingReservation}
+              onDraft={createDraft}
+              onBoundaryChange={changeDraftBoundary}
+              onPublish={publishDraft}
+              onBack={leaveTeaching}
+            />
+          )}
+        </div>
         <p className="sr-only" aria-live="polite">
           {announcement}
         </p>

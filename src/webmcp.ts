@@ -2,10 +2,14 @@ import type { AppState, PlaybookBoundary, ToolResult } from "./domain";
 import {
   commitApprovedRun,
   currentCaseResult,
+  playbookForReservation,
   prepareCurrentRun,
+  selectedReservation,
 } from "./application";
 import {
-  DEMONSTRATED_ACTIONS,
+  PLAYBOOK_DEFINITIONS,
+  activeDemonstration,
+  demonstratedActionsFor,
   draftPlaybook,
   type TeachingJourney,
 } from "./teaching";
@@ -35,7 +39,7 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
       name: "teachback_get_latest_demonstration",
       title: "Get latest demonstration",
       description:
-        "Read the four semantic actions demonstrated by a person on the synthetic teaching case.",
+        "Read the semantic actions demonstrated by a person on the active synthetic teaching case.",
       inputSchema: {
         type: "object",
         properties: {},
@@ -44,13 +48,24 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       execute: (_input, options) => {
         options?.signal?.throwIfAborted();
+        const teaching = service.getTeachingJourney();
+        const demonstration =
+          activeDemonstration(teaching) ?? teaching.demonstrations[0];
+        if (!demonstration) {
+          return response({
+            ok: false,
+            code: "DEMONSTRATION_NOT_FOUND",
+            summary: "No recorded demonstration is available.",
+          });
+        }
+        const actions = demonstratedActionsFor(demonstration.playbookId);
         return response({
           ok: true,
           code: "DEMONSTRATION_FOUND",
-          summary: "Found 4 semantic actions demonstrated on R-2041.",
+          summary: `Found ${actions.length} semantic actions demonstrated on ${demonstration.reservationId}.`,
           data: {
-            source_reservation_id: "R-2041",
-            actions: [...DEMONSTRATED_ACTIONS],
+            source_reservation_id: demonstration.reservationId,
+            actions: [...actions],
             synthetic_demo_data: true,
           },
         });
@@ -66,13 +81,18 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
         properties: {
           latest_arrival_limit: {
             type: "string",
-            enum: ["22:00", "23:00"],
+            enum: ["22:00", "23:00", "23:59"],
             description: "Proposed latest arrival handled by the playbook.",
           },
           taxi_handling: {
             type: "string",
             enum: ["allow", "escalate"],
             description: "Whether taxi requests are handled or escalated.",
+          },
+          dietary_handling: {
+            type: "string",
+            enum: ["allow", "escalate"],
+            description: "Whether new dietary requests are handled or escalated.",
           },
         },
         required: ["latest_arrival_limit", "taxi_handling"],
@@ -84,9 +104,12 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
         const candidate = input as {
           latest_arrival_limit?: unknown;
           taxi_handling?: unknown;
+          dietary_handling?: unknown;
         };
         if (
-          !["22:00", "23:00"].includes(String(candidate.latest_arrival_limit)) ||
+          !["22:00", "23:00", "23:59"].includes(
+            String(candidate.latest_arrival_limit),
+          ) ||
           !["allow", "escalate"].includes(String(candidate.taxi_handling))
         ) {
           return response({
@@ -95,14 +118,39 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
             summary: "The proposed boundary is outside the bounded draft schema.",
           });
         }
+        const sourceState = service.getTeachingJourney();
+        const demonstration = activeDemonstration(sourceState);
+        if (!demonstration) {
+          return response({
+            ok: false,
+            code: "TEACHING_SOURCE_REQUIRED",
+            summary: "Select a recorded case before drafting a playbook.",
+          });
+        }
+        const playbookId = demonstration.playbookId;
+        const defaultDietaryHandling =
+          PLAYBOOK_DEFINITIONS[playbookId].boundary.dietaryHandling;
+        if (
+          candidate.dietary_handling !== undefined &&
+          !["allow", "escalate"].includes(String(candidate.dietary_handling))
+        ) {
+          return response({
+            ok: false,
+            code: "INVALID_DRAFT",
+            summary: "The proposed boundary is outside the bounded draft schema.",
+          });
+        }
         const boundary: PlaybookBoundary = {
-          latestArrivalLimit: candidate.latest_arrival_limit as "22:00" | "23:00",
+          latestArrivalLimit: candidate.latest_arrival_limit as
+            | "22:00"
+            | "23:00"
+            | "23:59",
           taxiHandling: candidate.taxi_handling as "allow" | "escalate",
-          dietaryHandling: "escalate",
+          dietaryHandling: (candidate.dietary_handling ??
+            defaultDietaryHandling) as "allow" | "escalate",
           compensationHandling: "escalate",
           approvalRequired: true,
         };
-        const sourceState = service.getTeachingJourney();
         const drafted = draftPlaybook(sourceState, boundary);
         if (
           drafted.state !== sourceState &&
@@ -141,7 +189,7 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
       name: "teachback_prepare_current",
       title: "Prepare current case",
       description:
-        "Validate the selected reservation against Late Arrival Care and create a preview without applying changes.",
+        "Validate the selected reservation against its matching published playbook and create a preview without applying changes.",
       inputSchema: {
         type: "object",
         properties: {},
@@ -151,7 +199,7 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
       execute: async (_input, options) => {
         options?.signal?.throwIfAborted();
         const teaching = service.getTeachingJourney();
-        if (teaching.stage !== "reuse" || !teaching.publishedBoundary) {
+        if (teaching.stage !== "reuse" || teaching.publishedPlaybooks.length === 0) {
           return response({
             ok: false,
             code: "PLAYBOOK_NOT_PUBLISHED",
@@ -159,10 +207,21 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
           });
         }
         const sourceState = service.getState();
+        const playbook = playbookForReservation(
+          selectedReservation(sourceState),
+          teaching.publishedPlaybooks,
+        );
+        if (!playbook) {
+          return response({
+            ok: false,
+            code: "PLAYBOOK_NOT_PUBLISHED",
+            summary: "A person must review and publish the playbook first.",
+          });
+        }
         const prepared = await prepareCurrentRun(
           sourceState,
           new Date(),
-          teaching.publishedBoundary,
+          playbook,
         );
         options?.signal?.throwIfAborted();
         if (
@@ -221,7 +280,7 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
           });
         }
         const teaching = service.getTeachingJourney();
-        if (teaching.stage !== "reuse" || !teaching.publishedBoundary) {
+        if (teaching.stage !== "reuse" || teaching.publishedPlaybooks.length === 0) {
           return response({
             ok: false,
             code: "PLAYBOOK_NOT_PUBLISHED",
@@ -229,10 +288,16 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
           });
         }
         const sourceState = service.getState();
+        const activePlaybook = sourceState.activeRun
+          ? teaching.publishedPlaybooks.find(
+              (playbook) => playbook.id === sourceState.activeRun?.playbookId,
+            )
+          : null;
         if (
           sourceState.activeRun &&
+          (!activePlaybook ||
           JSON.stringify(sourceState.activeRun.playbookBoundary) !==
-            JSON.stringify(teaching.publishedBoundary)
+            JSON.stringify(activePlaybook.boundary))
         ) {
           return response({
             ok: false,

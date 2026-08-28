@@ -3,8 +3,10 @@ import { approveCurrentRun } from "./application";
 import type { AppState } from "./domain";
 import { createInitialState } from "./fixtures";
 import {
+  NIGHT_ARRIVAL_PLAYBOOK,
   createPublishedJourney,
   createTeachingJourney,
+  startTeachingDemonstration,
   type TeachingJourney,
 } from "./teaching";
 import { createWebMcpTools } from "./webmcp";
@@ -67,7 +69,7 @@ describe("WebMCP tool adapter", () => {
     });
     expect(drafted.code).toBe("PLAYBOOK_DRAFTED");
     expect(testHarness.getJourney().stage).toBe("draft");
-    expect(testHarness.getJourney().publishedBoundary).toBeNull();
+    expect(testHarness.getJourney().publishedPlaybooks).toHaveLength(0);
     expect(blockedPreparation.code).toBe("PLAYBOOK_NOT_PUBLISHED");
   });
 
@@ -86,6 +88,42 @@ describe("WebMCP tool adapter", () => {
     expect(current.code).toBe("CURRENT_CASE");
     expect(prepared.code).toBe("RUN_PREPARED");
     expect(testHarness.getState().activeRun?.status).toBe("awaiting_review");
+  });
+
+  it("reads and drafts the second recorded demonstration separately", async () => {
+    const published = createPublishedJourney();
+    const nightDemonstration = published.demonstrations.find(
+      (demonstration) =>
+        demonstration.playbookId === NIGHT_ARRIVAL_PLAYBOOK.id,
+    )!;
+    const secondTeaching = startTeachingDemonstration(
+      published,
+      nightDemonstration.id,
+    );
+    const testHarness = harness(secondTeaching);
+    const readTool = testHarness.tools.find(
+      (tool) => tool.name === "teachback_get_latest_demonstration",
+    )!;
+    const draftTool = testHarness.tools.find(
+      (tool) => tool.name === "teachback_submit_playbook_draft",
+    )!;
+
+    const demonstration = JSON.parse(await readTool.execute({}));
+    const drafted = JSON.parse(
+      await draftTool.execute({
+        latest_arrival_limit: "23:59",
+        taxi_handling: "allow",
+        dietary_handling: "allow",
+      }),
+    );
+
+    expect(demonstration.data.source_reservation_id).toBe("R-2050");
+    expect(demonstration.data.actions).toHaveLength(6);
+    expect(drafted.code).toBe("PLAYBOOK_DRAFTED");
+    expect(testHarness.getJourney().draft?.playbookId).toBe(
+      NIGHT_ARRIVAL_PLAYBOOK.id,
+    );
+    expect(testHarness.getJourney().publishedPlaybooks).toHaveLength(1);
   });
 
   it("commits through the adapter only after matching UI approval", async () => {
@@ -111,8 +149,9 @@ describe("WebMCP tool adapter", () => {
     expect(
       testHarness
         .getState()
-        .reservations.find((reservation) => reservation.id === "R-2048")?.label,
-    ).toBe("Resolved");
+        .reservations.find((reservation) => reservation.id === "R-2048")
+        ?.estimatedArrivalTime,
+    ).toBe("20:45");
   });
 
   it("refuses commit when the published boundary changes after preparation", async () => {
@@ -126,7 +165,7 @@ describe("WebMCP tool adapter", () => {
     const prepared = JSON.parse(await prepareTool.execute({}));
     testHarness.setState(approveCurrentRun(testHarness.getState()).state);
     const changedJourney = structuredClone(testHarness.getJourney());
-    changedJourney.publishedBoundary!.latestArrivalLimit = "23:00";
+    changedJourney.publishedPlaybooks[0]!.boundary.latestArrivalLimit = "23:00";
     testHarness.setJourney(changedJourney);
 
     const result = JSON.parse(

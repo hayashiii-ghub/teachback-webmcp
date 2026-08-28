@@ -6,6 +6,7 @@ import {
   selectReservation,
 } from "./application";
 import { createInitialState } from "./fixtures";
+import { NIGHT_ARRIVAL_PLAYBOOK } from "./teaching";
 
 describe("Late Arrival Care run", () => {
   it("prepares a preview without mutating the reservation", async () => {
@@ -35,7 +36,8 @@ describe("Late Arrival Care run", () => {
     expect(prepared.result.reasons).toContain(
       "This case already has late-arrival handling.",
     );
-    expect(prepared.state).toBe(selected);
+    expect(prepared.state.activeRun).toBeNull();
+    expect(prepared.state.rejection?.reservationId).toBe("R-2041");
   });
 
   it("rejects an unsafe case with every applicable reason", async () => {
@@ -49,6 +51,52 @@ describe("Late Arrival Care run", () => {
       "Transportation arrangements are outside this playbook.",
     ]);
     expect(prepared.state.activeRun).toBeNull();
+  });
+
+  it("prepares Daniel only with the second taught playbook", async () => {
+    const selected = selectReservation(createInitialState(), "R-2052");
+    const prepared = await prepareCurrentRun(
+      selected,
+      new Date("2026-08-27T10:00:00.000Z"),
+      NIGHT_ARRIVAL_PLAYBOOK,
+    );
+
+    expect(prepared.result.code).toBe("RUN_PREPARED");
+    expect(prepared.state.activeRun?.playbookId).toBe(
+      "night-arrival-coordination@1",
+    );
+    expect(prepared.state.activeRun?.proposedChanges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "Dietary request", after: "Handled" }),
+        expect.objectContaining({ field: "Taxi", after: "Arranged" }),
+      ]),
+    );
+  });
+
+  it("commits the exact night-arrival actions after human approval", async () => {
+    const selected = selectReservation(createInitialState(), "R-2052");
+    const prepared = await prepareCurrentRun(
+      selected,
+      new Date("2026-08-27T10:00:00.000Z"),
+      NIGHT_ARRIVAL_PLAYBOOK,
+    );
+    const approved = approveCurrentRun(
+      prepared.state,
+      new Date("2026-08-27T10:01:00.000Z"),
+    );
+    const run = approved.state.activeRun!;
+    const committed = await commitApprovedRun(
+      approved.state,
+      { runId: run.id, expectedDigest: run.digest },
+      new Date("2026-08-27T10:02:00.000Z"),
+    );
+
+    expect(committed.result.code).toBe("RUN_COMMITTED");
+    const daniel = committed.state.reservations.find(
+      (reservation) => reservation.id === "R-2052",
+    )!;
+    expect(daniel.dietaryRequestHandled).toBe(true);
+    expect(daniel.taxiArranged).toBe(true);
   });
 
   it("does not commit before human approval", async () => {
@@ -114,7 +162,6 @@ describe("Late Arrival Care run", () => {
     expect(reservation.estimatedArrivalTime).toBe("20:45");
     expect(reservation.mealService).toBe("late_meal_box");
     expect(reservation.version).toBe(2);
-    expect(reservation.label).toBe("Resolved");
   });
 
   it("rejects a digest that was not approved", async () => {

@@ -1,16 +1,22 @@
 import {
   DEMO_DATE,
-  SOURCE_RESERVATION_ID,
   type AppState,
   type AuditEvent,
   type PlaybookBoundary,
+  type PlaybookAction,
+  type PlaybookId,
   type PreparedRun,
   type ProposedChange,
+  type PublishedPlaybook,
   type Reservation,
   type ToolResult,
 } from "./domain";
 import { createInitialState } from "./fixtures";
-import { SAFE_PUBLISHED_BOUNDARY } from "./teaching";
+import {
+  LATE_ARRIVAL_PLAYBOOK,
+  PLAYBOOK_DEFINITIONS,
+  SAFE_PUBLISHED_BOUNDARY,
+} from "./teaching";
 
 const APPROVAL_TTL_MS = 5 * 60 * 1000;
 
@@ -76,7 +82,11 @@ export function eligibilityReasons(
   if (reservation.requestedArrivalTime > boundary.latestArrivalLimit) {
     reasons.push(`Arrival is later than ${boundary.latestArrivalLimit}.`);
   }
-  if (reservation.hasNewDietaryRequest) {
+  if (
+    reservation.hasNewDietaryRequest &&
+    !reservation.dietaryRequestHandled &&
+    boundary.dietaryHandling === "escalate"
+  ) {
     reasons.push("A new dietary request requires human review.");
   }
   if (reservation.requestsTaxi && boundary.taxiHandling === "escalate") {
@@ -97,9 +107,25 @@ export function eligibilityReasons(
   return reasons;
 }
 
+export function playbookForReservation(
+  reservation: Reservation,
+  publishedPlaybooks: PublishedPlaybook[],
+): PublishedPlaybook | null {
+  return (
+    publishedPlaybooks.find(
+      (playbook) => eligibilityReasons(reservation, playbook.boundary).length === 0,
+    ) ?? null
+  );
+}
+
+function playbookName(playbookId: PlaybookId): string {
+  return PLAYBOOK_DEFINITIONS[playbookId]?.name ?? playbookId;
+}
+
 function changesFor(
   reservation: Reservation,
-  after = applyLateArrivalCare(reservation),
+  playbook: Pick<PublishedPlaybook, "actions">,
+  after = applyPlaybook(reservation, playbook.actions),
 ): ProposedChange[] {
   const mealServiceLabels: Record<Reservation["mealService"], string> = {
     regular_dinner: "Regular dinner",
@@ -107,7 +133,7 @@ function changesFor(
     none: "No meal service",
   };
 
-  return [
+  const changes: ProposedChange[] = [
     {
       field: "Arrival",
       before: reservation.plannedArrivalTime,
@@ -118,6 +144,24 @@ function changesFor(
       before: mealServiceLabels[reservation.mealService],
       after: mealServiceLabels[after.mealService],
     },
+  ];
+
+  if (reservation.dietaryRequestHandled !== after.dietaryRequestHandled) {
+    changes.push({
+      field: "Dietary request",
+      before: reservation.dietaryRequestHandled ? "Handled" : "Pending",
+      after: after.dietaryRequestHandled ? "Handled" : "Pending",
+    });
+  }
+  if (reservation.taxiArranged !== after.taxiArranged) {
+    changes.push({
+      field: "Taxi",
+      before: reservation.taxiArranged ? "Arranged" : "Requested",
+      after: after.taxiArranged ? "Arranged" : "Requested",
+    });
+  }
+
+  changes.push(
     {
       field: "Guest message",
       before: reservation.guestMessageDraft,
@@ -128,18 +172,46 @@ function changesFor(
       before: reservation.shiftHandoff,
       after: after.shiftHandoff ?? "No shift handoff",
     },
-  ];
+  );
+
+  return changes;
 }
 
-function applyLateArrivalCare(reservation: Reservation): Reservation {
-  return {
-    ...reservation,
-    estimatedArrivalTime: reservation.requestedArrivalTime,
-    mealService: "late_meal_box",
-    guestMessageDraft:
-      "We have noted your late arrival. Your meal box will be ready at reception.",
-    shiftHandoff: `Late arrival expected at ${reservation.requestedArrivalTime}. Meal box and English guest message prepared.`,
-  };
+function applyPlaybook(
+  reservation: Reservation,
+  actions: PlaybookAction[],
+): Reservation {
+  return actions.reduce<Reservation>((current, action) => {
+    switch (action.type) {
+      case "set_estimated_arrival":
+        return { ...current, estimatedArrivalTime: current[action.from] };
+      case "set_meal_service":
+        return { ...current, mealService: action.value };
+      case "handle_dietary_request":
+        return {
+          ...current,
+          dietaryRequestHandled: current.hasNewDietaryRequest,
+        };
+      case "arrange_taxi":
+        return { ...current, taxiArranged: current.requestsTaxi };
+      case "draft_guest_message":
+        return {
+          ...current,
+          guestMessageDraft:
+            action.template === "night_arrival"
+              ? "Your dietary-safe meal box and taxi are arranged for your late arrival."
+              : "We have noted your late arrival. Your meal box will be ready at reception.",
+        };
+      case "add_shift_handoff":
+        return {
+          ...current,
+          shiftHandoff:
+            action.template === "night_arrival"
+              ? `Night arrival expected at ${current.requestedArrivalTime}. Dietary-safe meal box and taxi arranged.`
+              : `Late arrival expected at ${current.requestedArrivalTime}. Meal box and English guest message prepared.`,
+        };
+    }
+  }, structuredClone(reservation));
 }
 
 async function sha256(value: string): Promise<string> {
@@ -155,9 +227,11 @@ function digestPayload(
   after: Reservation,
   proposedChanges: ProposedChange[],
   boundary: PlaybookBoundary,
+  playbook: Pick<PublishedPlaybook, "id" | "actions">,
 ): string {
   return JSON.stringify({
-    playbook: "late-arrival-care@1",
+    playbook: playbook.id,
+    actions: playbook.actions,
     reservationId: before.id,
     reservationVersion: before.version,
     requestedArrivalTime: before.requestedArrivalTime,
@@ -172,28 +246,20 @@ async function computeRunDigest(
   after: Reservation,
   proposedChanges: ProposedChange[],
   boundary: PlaybookBoundary,
+  playbook: Pick<PublishedPlaybook, "id" | "actions">,
 ): Promise<string> {
-  return sha256(digestPayload(before, after, proposedChanges, boundary));
+  return sha256(
+    digestPayload(before, after, proposedChanges, boundary, playbook),
+  );
 }
 
 export async function prepareCurrentRun(
   state: AppState,
   now = new Date(),
-  boundary: PlaybookBoundary = SAFE_PUBLISHED_BOUNDARY,
+  playbook: PublishedPlaybook = LATE_ARRIVAL_PLAYBOOK,
 ): Promise<{ state: AppState; result: ToolResult }> {
   const reservation = selectedReservation(state);
-
-  if (reservation.id === SOURCE_RESERVATION_ID) {
-    return {
-      state,
-      result: {
-        ok: false,
-        code: "PLAYBOOK_NOT_APPLICABLE",
-        summary: "The teaching source cannot start a new run.",
-        reasons: ["This case already has late-arrival handling."],
-      },
-    };
-  }
+  const boundary = playbook.boundary;
 
   const reasons = eligibilityReasons(reservation, boundary);
 
@@ -207,7 +273,7 @@ export async function prepareCurrentRun(
           ...state.audit,
           makeAuditEvent(
             "Website",
-            `Rejected Late Arrival Care for ${reservation.id}.`,
+            `Rejected ${playbookName(playbook.id)} for ${reservation.id}.`,
             now,
           ),
         ],
@@ -221,16 +287,18 @@ export async function prepareCurrentRun(
     };
   }
 
-  const after = applyLateArrivalCare(reservation);
-  const proposedChanges = changesFor(reservation, after);
+  const after = applyPlaybook(reservation, playbook.actions);
+  const proposedChanges = changesFor(reservation, playbook, after);
   const digest = await computeRunDigest(
     reservation,
     after,
     proposedChanges,
     boundary,
+    playbook,
   );
   const run: PreparedRun = {
     id: crypto.randomUUID(),
+    playbookId: playbook.id,
     reservationId: reservation.id,
     reservationVersion: reservation.version,
     before: structuredClone(reservation),
@@ -254,7 +322,7 @@ export async function prepareCurrentRun(
         ...state.audit,
         makeAuditEvent(
           "Agent",
-          `Prepared Late Arrival Care for ${reservation.id}.`,
+          `Prepared ${playbookName(playbook.id)} for ${reservation.id}.`,
           now,
         ),
       ],
@@ -287,7 +355,6 @@ export function approveCurrentRun(
     !run ||
     run.status !== "awaiting_review" ||
     state.rejection !== null ||
-    run.reservationId === SOURCE_RESERVATION_ID ||
     state.selectedReservationId !== run.reservationId
   ) {
     return {
@@ -378,7 +445,6 @@ export async function commitApprovedRun(
   }
   if (
     state.rejection !== null ||
-    run.reservationId === SOURCE_RESERVATION_ID ||
     state.selectedReservationId !== run.reservationId
   ) {
     return failure(
@@ -436,20 +502,26 @@ export async function commitApprovedRun(
     );
   }
 
-  const canonicalAfter = applyLateArrivalCare(current);
-  const canonicalChanges = changesFor(current, canonicalAfter);
+  const definition = PLAYBOOK_DEFINITIONS[run.playbookId];
+  if (!definition) {
+    return failure(state, "PLAYBOOK_NOT_FOUND", "The playbook was not found.");
+  }
+  const canonicalAfter = applyPlaybook(current, definition.actions);
+  const canonicalChanges = changesFor(current, definition, canonicalAfter);
   const [storedPayloadDigest, canonicalDigest] = await Promise.all([
     computeRunDigest(
       run.before,
       run.after,
       run.proposedChanges,
       run.playbookBoundary,
+      definition,
     ),
     computeRunDigest(
       current,
       canonicalAfter,
       canonicalChanges,
       run.playbookBoundary,
+      definition,
     ),
   ]);
   if (
@@ -468,7 +540,6 @@ export async function commitApprovedRun(
   const committedReservation: Reservation = {
     ...canonicalAfter,
     version: current.version + 1,
-    label: "Resolved",
   };
   const committedRun: PreparedRun = {
     ...run,
@@ -536,7 +607,9 @@ export function currentCaseResult(state: AppState): ToolResult {
       requested_arrival_time: reservation.requestedArrivalTime,
       meal_plan: reservation.mealPlan,
       new_dietary_request: reservation.hasNewDietaryRequest,
+      dietary_request_handled: reservation.dietaryRequestHandled,
       taxi_requested: reservation.requestsTaxi,
+      taxi_arranged: reservation.taxiArranged,
       compensation_requested: reservation.requestsCompensation,
       active_run: state.activeRun
         ? {

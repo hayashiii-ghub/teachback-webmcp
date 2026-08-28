@@ -1,13 +1,13 @@
 import {
   DEMO_DATE,
-  SOURCE_RESERVATION_ID,
   type AppState,
+  type Demonstration,
   type Reservation,
 } from "./domain";
 
 export const reservationFixtures: Reservation[] = [
   {
-    id: SOURCE_RESERVATION_ID,
+    id: "R-2041",
     guestDisplayName: "Aiko Tanaka",
     status: "confirmed",
     arrivalDate: DEMO_DATE,
@@ -17,12 +17,13 @@ export const reservationFixtures: Reservation[] = [
     mealPlan: "dinner_included",
     mealService: "late_meal_box",
     hasNewDietaryRequest: false,
+    dietaryRequestHandled: false,
     requestsTaxi: false,
+    taxiArranged: false,
     requestsCompensation: false,
     guestMessageDraft: "Your late-arrival meal box will be ready at reception.",
     shiftHandoff: "Late arrival at 21:30. Meal box at reception.",
     version: 2,
-    label: "Recorded",
   },
   {
     id: "R-2048",
@@ -35,12 +36,34 @@ export const reservationFixtures: Reservation[] = [
     mealPlan: "dinner_included",
     mealService: "regular_dinner",
     hasNewDietaryRequest: false,
+    dietaryRequestHandled: false,
     requestsTaxi: false,
+    taxiArranged: false,
     requestsCompensation: false,
     guestMessageDraft: null,
     shiftHandoff: null,
     version: 1,
-    label: "Needs review",
+  },
+  {
+    id: "R-2050",
+    guestDisplayName: "Sofia Rossi",
+    status: "confirmed",
+    arrivalDate: DEMO_DATE,
+    plannedArrivalTime: "18:15",
+    requestedArrivalTime: "23:30",
+    estimatedArrivalTime: "23:30",
+    mealPlan: "dinner_included",
+    mealService: "late_meal_box",
+    hasNewDietaryRequest: true,
+    dietaryRequestHandled: true,
+    requestsTaxi: true,
+    taxiArranged: true,
+    requestsCompensation: false,
+    guestMessageDraft:
+      "Your dietary-safe meal box and taxi are arranged for your late arrival.",
+    shiftHandoff:
+      "Night arrival at 23:30. Dietary-safe meal box and taxi arranged.",
+    version: 2,
   },
   {
     id: "R-2052",
@@ -53,12 +76,42 @@ export const reservationFixtures: Reservation[] = [
     mealPlan: "dinner_included",
     mealService: "regular_dinner",
     hasNewDietaryRequest: true,
+    dietaryRequestHandled: false,
     requestsTaxi: true,
+    taxiArranged: false,
     requestsCompensation: false,
     guestMessageDraft: null,
     shiftHandoff: null,
     version: 1,
-    label: "Human only",
+  },
+];
+
+export const demonstrationFixtures: Demonstration[] = [
+  {
+    id: "demo-late-arrival-aiko",
+    reservationId: "R-2041",
+    playbookId: "late-arrival-care@1",
+    capturedAt: "2026-08-27T09:00:00.000Z",
+    actions: [
+      { type: "set_estimated_arrival", from: "requestedArrivalTime" },
+      { type: "set_meal_service", value: "late_meal_box" },
+      { type: "draft_guest_message", template: "late_arrival" },
+      { type: "add_shift_handoff", template: "late_arrival" },
+    ],
+  },
+  {
+    id: "demo-night-arrival-sofia",
+    reservationId: "R-2050",
+    playbookId: "night-arrival-coordination@1",
+    capturedAt: "2026-08-27T09:10:00.000Z",
+    actions: [
+      { type: "set_estimated_arrival", from: "requestedArrivalTime" },
+      { type: "set_meal_service", value: "late_meal_box" },
+      { type: "handle_dietary_request" },
+      { type: "arrange_taxi" },
+      { type: "draft_guest_message", template: "night_arrival" },
+      { type: "add_shift_handoff", template: "night_arrival" },
+    ],
   },
 ];
 
