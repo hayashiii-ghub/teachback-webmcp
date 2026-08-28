@@ -159,42 +159,6 @@ a:focus-visible {
   letter-spacing: -0.02em;
 }
 
-.demo-intro span {
-  flex: 0 0 auto;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--muted);
-  background: var(--rail);
-  font-size: 12px;
-  line-height: 18px;
-  font-weight: 650;
-  white-space: nowrap;
-}
-
-.teaching-workspace {
-  padding: 48px 34px 72px;
-}
-
-.teaching-lead {
-  max-width: 980px;
-}
-
-.teaching-lead h1 {
-  margin: 0;
-  font-size: clamp(36px, 4.4vw, 66px);
-  line-height: 1.06;
-  letter-spacing: -0.045em;
-}
-
-.teaching-lead p {
-  max-width: 760px;
-  margin: 22px 0 0;
-  color: var(--muted);
-  font-size: 18px;
-  line-height: 30px;
-}
-
 .journey-steps {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -244,112 +208,10 @@ a:focus-visible {
   background: var(--accent);
 }
 
-.journey-steps strong,
-.journey-steps small {
-  display: block;
-}
-
 .journey-steps strong {
+  display: block;
   font-size: 13px;
   line-height: 19px;
-}
-
-.journey-steps small {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 17px;
-}
-
-.teaching-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
-  gap: 24px;
-  align-items: start;
-}
-
-.demonstration-card,
-.teaching-panel {
-  border: 1px solid var(--border);
-  background: var(--bg);
-}
-
-.demonstration-card {
-  padding: 28px;
-}
-
-.demonstration-heading-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  padding-bottom: 22px;
-  border-bottom: 1px solid var(--border);
-}
-
-.demonstration-heading-row span {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.demonstration-heading-row h2 {
-  margin: 5px 0 0;
-  font-size: 26px;
-  line-height: 32px;
-}
-
-.demonstration-heading-row > strong {
-  align-self: center;
-  flex: 0 0 auto;
-  color: var(--accent-dark);
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.demonstration-card ol {
-  display: grid;
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.demonstration-card li {
-  min-height: 66px;
-  display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
-  align-items: center;
-  gap: 14px;
-  border-bottom: 1px solid var(--border);
-}
-
-.demonstration-card li:last-child {
-  border-bottom: 0;
-}
-
-.demonstration-card li > span {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  color: #ffffff;
-  background: var(--text);
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.demonstration-card li strong {
-  font-size: 16px;
-  line-height: 24px;
-}
-
-.teaching-panel {
-  padding: 24px;
-}
-
-.teaching-panel .webmcp-availability {
-  margin: 0 0 22px;
 }
 
 .draft-start h2,
@@ -463,29 +325,6 @@ a:focus-visible {
 .publish-note.is-ready {
   color: var(--success);
   font-weight: 700;
-}
-
-.journey-proof {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 12px 34px;
-  border-bottom: 1px solid var(--border);
-  background: var(--text);
-  color: #ffffff;
-}
-
-.journey-proof strong {
-  font-size: 13px;
-  line-height: 19px;
-}
-
-.journey-proof span {
-  color: #ddd9d5;
-  font-size: 12px;
-  line-height: 18px;
-  text-align: right;
 }
 
 .app-grid {
@@ -628,44 +467,6 @@ a:focus-visible {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #faf9f7;
-}
-
-.playbook-flow-step {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.playbook-flow-step > span {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 16px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.playbook-flow-step strong {
-  font-size: 14px;
-  line-height: 20px;
-  overflow-wrap: anywhere;
-}
-
-.playbook-flow-step small {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 16px;
-}
-
-.playbook-flow-step.is-playbook strong,
-.playbook-flow-step.is-current strong {
-  color: var(--accent-dark);
-}
-
-.playbook-flow-arrow {
-  width: 22px;
-  height: 22px;
-  color: var(--accent);
 }
 
 .reservation-facts {
@@ -1193,12 +994,6 @@ a:focus-visible {
   background: var(--accent-dark);
 }
 
-.primary-action.is-approved {
-  border-color: var(--success);
-  background: var(--success);
-  opacity: 1;
-}
-
 .secondary-action {
   border: 1px solid #9b9692;
   background: transparent;
@@ -1437,10 +1232,6 @@ a:focus-visible {
 }
 
 @media (max-width: 1023px) {
-  .teaching-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .journey-steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1514,56 +1305,13 @@ a:focus-visible {
     line-height: 29px;
   }
 
-  .demo-intro span {
-    white-space: normal;
-  }
-
-  .teaching-workspace {
-    padding: 34px 20px 52px;
-  }
-
-  .teaching-lead h1 {
-    font-size: 38px;
-  }
-
-  .teaching-lead p {
-    font-size: 16px;
-    line-height: 27px;
-  }
-
   .journey-steps {
     grid-template-columns: minmax(0, 1fr);
     margin-top: 30px;
   }
 
-  .demonstration-card,
-  .teaching-panel {
-    padding: 20px;
-  }
-
-  .demonstration-heading-row {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .demonstration-heading-row > strong {
-    align-self: flex-start;
-  }
-
   .boundary-control {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .journey-proof {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 4px;
-    padding: 14px 20px;
-  }
-
-  .journey-proof span {
-    text-align: left;
   }
 
   .app-grid {
@@ -1666,28 +1414,6 @@ a:focus-visible {
     padding: 14px;
   }
 
-  .playbook-flow-step > span {
-    font-size: 11px;
-    line-height: 16px;
-  }
-
-  .playbook-flow-step strong {
-    font-size: 14px;
-    line-height: 20px;
-  }
-
-  .playbook-flow-step small {
-    font-size: 11px;
-    line-height: 16px;
-  }
-
-  .playbook-flow-arrow {
-    width: 18px;
-    height: 18px;
-    justify-self: center;
-    transform: rotate(90deg);
-  }
-
   .change-row {
     grid-template-columns: 1fr;
     gap: 8px;
@@ -1782,22 +1508,6 @@ a:focus-visible {
   line-height: 1.45;
   font-weight: 600;
   letter-spacing: 0;
-}
-
-.journey-proof {
-  display: block;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-}
-
-.journey-proof strong {
-  padding-bottom: 3px;
-  border-bottom: 1px solid currentColor;
-  font-size: 13px;
-  line-height: 20px;
-  font-weight: 500;
 }
 
 .app-grid {
@@ -2411,10 +2121,6 @@ a:focus-visible {
   .demo-intro strong {
     font-size: 19px;
     line-height: 29px;
-  }
-
-  .journey-proof strong {
-    font-size: 12px;
   }
 
   .app-grid {

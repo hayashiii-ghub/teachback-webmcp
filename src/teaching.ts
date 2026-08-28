@@ -131,17 +131,6 @@ export function demonstratedActionsFor(playbookId: PlaybookId): string[] {
   return (PLAYBOOK_DEFINITIONS[playbookId]?.actions ?? []).map(actionSummary);
 }
 
-export function demonstrationForPlaybook(
-  journey: TeachingJourney,
-  playbookId: PlaybookId,
-): Demonstration | null {
-  return (
-    journey.demonstrations.find(
-      (demonstration) => demonstration.playbookId === playbookId,
-    ) ?? null
-  );
-}
-
 export function activeDemonstration(
   journey: TeachingJourney,
 ): Demonstration | null {
