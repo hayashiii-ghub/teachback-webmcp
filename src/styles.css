@@ -73,22 +73,27 @@ a:focus-visible {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 15px;
-}
-
-.brand-mark {
-  width: clamp(36px, 3.2vw, 44px);
-  height: clamp(36px, 3.2vw, 44px);
-  flex: 0 0 auto;
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   font-family: "Iowan Old Style", Baskerville, Georgia, serif;
   font-size: 40px;
   line-height: 44px;
   font-weight: 700;
   letter-spacing: -0.04em;
   white-space: nowrap;
+}
+
+.brand-boundary {
+  width: 10px;
+  height: 35px;
+  border-top: 3px solid var(--accent);
+  border-right: 3px solid var(--accent);
+  border-bottom: 3px solid var(--accent);
+  transform: translateY(1px);
 }
 
 .header-actions {

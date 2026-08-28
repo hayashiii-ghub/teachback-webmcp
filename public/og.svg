@@ -3,9 +3,8 @@
   <desc id="description">Turn one human-handled case into a reusable, human-approved playbook.</desc>
   <rect width="1200" height="630" fill="#fbfaf6"/>
   <path d="M0 0h14v630H0z" fill="#d83427"/>
-  <text x="74" y="258" fill="#171512" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="116" font-weight="600" letter-spacing="-6">T</text>
-  <path fill="none" stroke="#d83427" stroke-width="8" d="M163 166h26v96h-26"/>
-  <text x="230" y="258" fill="#171512" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="116" font-weight="600" letter-spacing="-6">Teachback</text>
+  <text x="74" y="258" fill="#171512" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="116" font-weight="600" letter-spacing="-6">Teachback</text>
+  <path fill="none" stroke="#d83427" stroke-width="8" d="M628 166h26v96h-26"/>
   <text x="80" y="342" fill="#59544d" font-family="Helvetica Neue, Arial, sans-serif" font-size="34">Turn one human-handled case into a reusable,</text>
   <text x="80" y="386" fill="#59544d" font-family="Helvetica Neue, Arial, sans-serif" font-size="34">human-approved playbook.</text>
   <path d="M80 442H1120" stroke="#d8d3ca" stroke-width="2"/>

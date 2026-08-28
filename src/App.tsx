@@ -348,8 +348,10 @@ function AppHeader({
   return (
     <header className="app-header">
       <div className="brand-lockup">
-        <img className="brand-mark" src="/brand-mark.svg" alt="" />
-        <span className="brand">Teachback</span>
+        <span className="brand">
+          Teachback
+          <span className="brand-boundary" aria-hidden="true" />
+        </span>
       </div>
       <div className="header-actions">
         <div
