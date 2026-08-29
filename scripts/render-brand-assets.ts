@@ -18,12 +18,6 @@ const targets: RenderTarget[] = [
     height: 180,
   },
   {
-    source: "public/favicon.svg",
-    output: "public/icon-512.png",
-    width: 512,
-    height: 512,
-  },
-  {
     source: "public/og.svg",
     output: "public/og.png",
     width: 1200,

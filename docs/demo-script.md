@@ -1,42 +1,33 @@
-# Teachback — 75-second demo script
+# Teachback — 60-second challenge demo
 
-## Capture setup
+## Delivery
 
-- Record at 1440×900 or 1920×1080, 16:9.
-- Keep the Teachback UI in Japanese and use the English narration below as voiceover or burned-in subtitles.
-- Show the WebMCP-aware agent beside the site when a tool is called. Crop out unrelated browser chrome and notifications.
-- Reset the demo immediately before recording. Do not pause on loading or setup screens.
-- Use `public/og.png` as the YouTube thumbnail. Do not add a separate title-card sequence before the product appears.
+- 1920×1080, 16:9, 30fps
+- 60.4 seconds
+- English UI, narration, and subtitles
+- No music; only two interface click sounds
+- Public YouTube upload for the WebMCP Challenge submission
 
-## Agent prompts
+Use `public/og.png` as the YouTube thumbnail.
 
-Send these three prompts during the recording. Keep the agent panel narrow enough that Teachback remains the primary surface.
+## Final cut
 
-1. After selecting Sofia and choosing **この対応から教える**:
-   - `Sofiaの実演を読み取り、到着が23:59までで、食事制限対応とタクシー手配を許可するプレイブック案を作ってください。公開はしないでください。`
-2. After publishing the rule and Daniel is selected:
-   - `現在選択中のDanielの予約に、公開済みルールを使った変更案だけ作ってください。まだ実行しないでください。`
-3. After selecting **変更案を承認** in Teachback:
-   - `承認済みの変更案を実行してください。`
-
-## Shot list and narration
-
-| Time | On screen | English narration / subtitle |
+| Time | On screen | Narration |
 | --- | --- | --- |
-| 0–7s | Teachback home. Sofia is visible in the reservation list. | “Teachback turns work demonstrated by a person into a reusable rule—with human-approved boundaries.” |
-| 7–17s | Select Sofia and choose **この対応から教える**. Her completed actions are shown. | “Sofia already handled a complex late arrival. Teachback records the semantic actions behind that work.” |
-| 17–29s | The agent calls `teachback_get_latest_demonstration`, then `teachback_submit_playbook_draft`. The draft appears in Teachback. | “The agent structures the demonstration into a bounded draft. It can propose, but it cannot publish or execute.” |
-| 29–41s | Show the proposed conditions. A person reviews them and selects **対応ルールを公開**. | “A person decides the reusable boundary and publishes the rule.” |
-| 41–52s | Daniel is selected automatically. The agent calls `teachback_prepare_current`; the proposed changes appear without being applied. | “Daniel now matches the published rule. The agent can prepare only a preview.” |
-| 52–65s | Select **変更案を承認**. The agent calls `teachback_commit_approved` with the approved run ID and digest. | “Human approval is bound to this exact proposal, once, for five minutes. The website—not the agent—enforces that permission.” |
-| 65–75s | Show the applied result, then briefly open the audit trail. End on the Teachback name. | “Teachback makes frontline judgment reusable without giving the agent authority to widen the rules.” |
+| 0.0–6.2s | WebMCP-specific problem statement | “Frontline judgment is valuable. Reusing it safely is the hard part.” |
+| 6.2–16.0s | Sofia’s completed late-arrival work | “Teachback starts with completed work. Sofia handled a late arrival, including dietary care, a taxi, and handoff.” |
+| 16.0–24.7s | The agent reads the demonstration and drafts seven conditions | “The agent reads that demonstration and proposes seven reusable conditions. It can draft—but it cannot publish.” |
+| 24.7–29.2s | A person reviews and publishes the boundary | “A person reviews the boundary and publishes the rule.” |
+| 29.2–35.9s | Daniel matches; only a preview is prepared | “Daniel now matches it. The agent may prepare a preview, but nothing changes yet.” |
+| 35.9–44.9s | Exact, one-use approval and website commit | “Approval is bound to this exact proposal: one use, within five minutes. Only then can the website commit it.” |
+| 44.9–51.9s | Audit trail from demonstration through execution | “Every step—from demonstration to execution—is recorded in the audit trail.” |
+| 51.9–60.4s | Mechanism summary and `Teachback]` wordmark | “Human demonstrated. Agent structured. Human constrained. The website enforced. Teachback.” |
 
-## Recording checklist
+## Submission checks
 
-- The agent tool calls are readable for at least one second each.
-- The draft is visibly unpublishable by the agent; publication happens in Teachback.
-- No reservation changes appear before human approval.
-- The final audit trail shows the demonstration, draft, publication, approval, and commit sequence.
-- The recording contains no real guest information, accounts, notifications, or unrelated tabs.
-- The public URL, favicon, logo, and Japanese UI are visible before recording begins.
-- Complete one silent rehearsal from reset through commit before starting the capture.
+- The agent can draft but cannot publish a rule.
+- No reservation changes occur before human approval.
+- Approval is tied to the exact proposal, expires after five minutes, and can be used once.
+- The audit trail shows the demonstration, draft, publication, approval, and commit sequence.
+- The recording contains no personal information, notifications, unrelated tabs, copyrighted music, or third-party footage.
+- The public app URL, repository URL, and video URL are accessible without the creator’s local state.

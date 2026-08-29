@@ -2,6 +2,8 @@
 
 Teachback turns demonstrated frontline work into reusable rules whose boundaries are approved by a person and enforced by the website through WebMCP.
 
+**Live demo:** [teachback-webmcp.haygsiiii.chatgpt.site](https://teachback-webmcp.haygsiiii.chatgpt.site/)
+
 This challenge prototype demonstrates two complementary flows:
 
 - **Reuse a published rule:** Aiko's handled reservation provides the published Late Arrival Care rule. The agent prepares a bounded preview for Emma, a person approves the exact proposal, and the website permits that approved digest to be committed once.
@@ -59,7 +61,7 @@ This client-only challenge prototype demonstrates deterministic policy enforceme
 
 ## Demo video
 
-The recommended 75-second recording sequence and English narration are in [`docs/demo-script.md`](docs/demo-script.md).
+The final 60.4-second challenge-demo structure and English narration are in [`docs/demo-script.md`](docs/demo-script.md).
 
 ## Brand assets
 
