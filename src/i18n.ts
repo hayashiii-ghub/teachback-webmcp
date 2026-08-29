@@ -16,7 +16,6 @@ export const UI_COPY = {
     japaneseLanguage: "日本語",
     resetDemo: "Reset demo",
     primaryPitch: "Reuse one taught workflow with conditions and approval.",
-    demoDataNotice: "All people and reservation details shown here are fictional",
     teachingHeadline: "Create a reusable rule from a handled case",
     teachingBody:
       "Review the recorded actions, let the agent propose conditions, and confirm the boundary before publishing.",
@@ -65,8 +64,6 @@ export const UI_COPY = {
     teachingActionCount: "Included actions",
     teachingRuleCount: "Expected conditions",
     teachingCountUnit: "",
-    nightAgentDraftNote:
-      "Detected: arrival by 23:59 · dietary request handled · taxi arranged",
     nightBoundaryReviewBody:
       "Review the proposed conditions before making this response available to matching reservations.",
     nightHumanConstrainedDetail:
@@ -90,6 +87,8 @@ export const UI_COPY = {
     boundaryReviewBody:
       "Two proposed limits are too broad. A person must tighten both before publishing.",
     draftRules: "7 proposed rules",
+    fixedSafeguards: "Fixed safeguards",
+    setBoundary: "Set the boundary",
     fixedRuleLabels: [
       "Confirmed reservation",
       "Arrival is today",
@@ -99,6 +98,8 @@ export const UI_COPY = {
     ],
     latestArrivalRule: "Latest arrival",
     taxiRule: "Taxi request",
+    dietaryRule: "Dietary request",
+    handleInPlaybook: "Handled in playbook",
     taxiAllow: "Handle in playbook",
     taxiEscalate: "Escalate to a person",
     agentProposal: "Proposed",
@@ -112,10 +113,11 @@ export const UI_COPY = {
     cases: "Cases",
     caseSearch: "Search cases",
     caseSearchPlaceholder: "Reservation ID or guest name",
-    caseCountUnit: "cases",
     noMatchingCases: "No matching cases",
     previousCases: "Show previous cases",
     nextCases: "Show more cases",
+    previousCasesShort: "Previous",
+    nextCasesShort: "Next",
     caseUnhandled: "Unhandled",
     caseAwaitingReview: "Awaiting review",
     caseHandled: "Handled",
@@ -142,7 +144,6 @@ export const UI_COPY = {
     unlearnedRecordedHeading: "Turn this response into a rule",
     unlearnedRecordedBody:
       "Create a reusable rule from the actions recorded on this handled reservation.",
-    sourceCaseLabel: "Handled",
     sourceCaseBody:
       "Late Arrival Care was created from the response recorded on this reservation.",
     unlearnedSourceCaseBody:
@@ -165,9 +166,9 @@ export const UI_COPY = {
     today: "Today",
     review: "Playbook boundary",
     criteriaPending: "Not checked yet",
-    criteriaPassed: "Eligible",
-    criteriaRefused: "Not eligible",
-    criteriaAllPassed: "All 7 conditions passed",
+    criteriaPassed: "7 of 7 conditions met",
+    criteriaRefused: "Needs review",
+    criteriaAllPassed: "7/7 conditions met",
     criterionPending: "Not evaluated",
     criterionPassed: "Passed",
     criterionRefused: "Did not pass",
@@ -185,23 +186,20 @@ export const UI_COPY = {
     refusedPreparation:
       "The website refused to prepare changes for this case.",
     preparePreview: "Check conditions and prepare preview",
-    prepareNoSideEffect: "This checks conditions and creates a preview only.",
     approvePreview: "Approve preview",
-    approvalScope: "Approval scope",
-    approvalTarget: "Target",
+    approvalScope: "Approval",
     approvalFields: "Changes",
-    approvalFieldsValue: "4 fields shown on this page",
+    approvalChangeCountUnit: "changes",
     approvalLimit: "Permission",
-    approvalLimitValue: "This exact proposal · once · within 5 minutes",
+    approvalLimitValue: "One use after approval · valid for 5 minutes",
     approvalTool: "Execution tool",
     auditEvidence:
       "Records condition checks, approvals, applied changes, and stopped actions.",
-    approvedReady: "Approved · waiting to apply",
+    approvedReady: "Approved for this proposal",
     approvalWindow: "Approval window",
     approvalValidUntil: "Valid until",
     approvalTimeZone: "JST",
-    approvalExactOnly:
-      "Only the proposal approved on this page can be applied once.",
+    approvalExactOnly: "May be applied once.",
     approvedWithWebMcp: "The approved change is ready to apply.",
     approvedWithoutWebMcp:
       "Open this page in a supported browser to apply the approved change.",
@@ -240,7 +238,6 @@ export const UI_COPY = {
     japaneseLanguage: "日本語",
     resetDemo: "デモをリセット",
     primaryPitch: "一度教えた対応を、条件と承認付きで再利用する。",
-    demoDataNotice: "表示中の人物・予約情報はすべて架空です",
     teachingHeadline: "対応例から再利用ルールを作る",
     teachingBody:
       "記録した対応をもとに、エージェントが条件を提案します。公開前に担当者が内容を確認します。",
@@ -289,8 +286,6 @@ export const UI_COPY = {
     teachingActionCount: "含まれる対応",
     teachingRuleCount: "想定される条件数",
     teachingCountUnit: "件",
-    nightAgentDraftNote:
-      "検出条件：23:59までの到着 · 食事制限対応 · タクシー手配",
     nightBoundaryReviewBody:
       "提案された条件を確認し、条件に合う予約で利用できる状態にします。",
     nightHumanConstrainedDetail:
@@ -313,6 +308,8 @@ export const UI_COPY = {
     boundaryReviewBody:
       "2つの提案が広すぎます。人が両方を安全側へ修正するまで公開できません。",
     draftRules: "7つの提案ルール",
+    fixedSafeguards: "固定の安全条件",
+    setBoundary: "任せる範囲を決める",
     fixedRuleLabels: [
       "予約が確定している",
       "到着日が本日",
@@ -322,6 +319,8 @@ export const UI_COPY = {
     ],
     latestArrivalRule: "対応する最終到着時刻",
     taxiRule: "タクシー依頼",
+    dietaryRule: "食事制限の依頼",
+    handleInPlaybook: "対応ルールで処理",
     taxiAllow: "対応ルールで処理",
     taxiEscalate: "担当者へ切り替える",
     agentProposal: "提案",
@@ -335,10 +334,11 @@ export const UI_COPY = {
     cases: "予約一覧",
     caseSearch: "予約を検索",
     caseSearchPlaceholder: "予約ID・氏名で検索",
-    caseCountUnit: "件",
     noMatchingCases: "一致する予約はありません",
     previousCases: "前の予約を表示",
     nextCases: "続きの予約を表示",
+    previousCasesShort: "前へ",
+    nextCasesShort: "次へ",
     caseUnhandled: "未対応",
     caseAwaitingReview: "確認待ち",
     caseHandled: "対応済み",
@@ -365,7 +365,6 @@ export const UI_COPY = {
     unlearnedRecordedHeading: "この対応をルールにできます",
     unlearnedRecordedBody:
       "記録した対応を、条件付きで再利用できるルールにします。",
-    sourceCaseLabel: "対応済み",
     sourceCaseBody:
       "この予約で記録した対応から、レイトアライバル対応を作成しました。",
     unlearnedSourceCaseBody:
@@ -388,9 +387,9 @@ export const UI_COPY = {
     today: "本日",
     review: "適用条件",
     criteriaPending: "未判定",
-    criteriaPassed: "適用可",
-    criteriaRefused: "適用不可",
-    criteriaAllPassed: "7条件すべて確認済み",
+    criteriaPassed: "7/7条件を満たす",
+    criteriaRefused: "確認が必要",
+    criteriaAllPassed: "7/7条件を確認済み",
     criterionPending: "未判定です",
     criterionPassed: "条件を満たしています",
     criterionRefused: "条件を満たしていません",
@@ -409,23 +408,20 @@ export const UI_COPY = {
     refusedPreparation:
       "このケースは対象外のため、変更案は作成されませんでした。",
     preparePreview: "条件を確認して変更案を作る",
-    prepareNoSideEffect: "条件を確認し、変更案だけを作成します。",
     approvePreview: "この内容を承認",
-    approvalScope: "今回の承認範囲",
-    approvalTarget: "対象",
+    approvalScope: "承認内容",
     approvalFields: "変更内容",
-    approvalFieldsValue: "この画面に表示した4項目",
+    approvalChangeCountUnit: "件の変更",
     approvalLimit: "許可範囲",
-    approvalLimitValue: "この変更案だけ · 1回限り · 5分以内",
+    approvalLimitValue: "承認後1回限り · 有効時間5分",
     approvalTool: "実行ツール",
     auditEvidence:
       "条件確認、担当者の承認、変更の反映、停止した操作を記録します。",
-    approvedReady: "承認済み・反映待ち",
+    approvedReady: "この変更案を承認済み",
     approvalWindow: "承認の有効期限",
     approvalValidUntil: "有効期限",
     approvalTimeZone: "JST",
-    approvalExactOnly:
-      "この画面で承認した変更案だけを、このあと一度だけ反映できます。",
+    approvalExactOnly: "この変更案を1回だけ反映できます。",
     approvedWithWebMcp: "承認した変更を反映できます。",
     approvedWithoutWebMcp:
       "対応ブラウザで開くと、承認した内容を反映できます。",

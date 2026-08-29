@@ -57,7 +57,6 @@ import {
   CaretLeftIcon,
   CaretRightIcon,
   CheckIcon,
-  CircleIcon,
   CloseIcon,
 } from "./icons";
 import {
@@ -232,7 +231,7 @@ function isPreparedRun(value: unknown): value is PreparedRun {
 function isAppState(value: unknown): value is AppState {
   if (
     !isRecord(value) ||
-    value.storageVersion !== 1 ||
+    value.storageVersion !== 2 ||
     !Array.isArray(value.reservations) ||
     value.reservations.length === 0 ||
     !value.reservations.every(isReservation) ||
@@ -461,6 +460,9 @@ function TeachingWorkspace({
   const actionLabels = isNight
     ? copy.nightDemonstrationActionLabels
     : copy.demonstrationActionLabels;
+  const fixedRuleLabels = isNight
+    ? copy.nightFixedRuleLabels.filter((_, index) => [0, 1, 5, 6].includes(index))
+    : copy.fixedRuleLabels;
 
   return (
     <>
@@ -540,17 +542,20 @@ function TeachingWorkspace({
                 {isNight ? copy.nightBoundaryReviewBody : copy.boundaryReviewBody}
               </p>
               <div className="draft-rules-heading">
-                <strong>{copy.draftRules}</strong>
-                <span>{copy.agentProposal}</span>
+                <strong>{copy.fixedSafeguards}</strong>
+                <span>{fixedRuleLabels.length}</span>
               </div>
               <ul className="fixed-rules">
-                {(isNight ? copy.nightFixedRuleLabels : copy.fixedRuleLabels).map((rule) => (
+                {fixedRuleLabels.map((rule) => (
                   <li key={rule}>
-                    <CheckIcon className="check-icon" />
                     <span>{rule}</span>
                   </li>
                 ))}
               </ul>
+              <div className="boundary-section-heading">
+                <strong>{copy.setBoundary}</strong>
+                <span>{copy.agentProposal}</span>
+              </div>
               {!isNight ? <>
               <div
                 className={`boundary-control${
@@ -591,10 +596,20 @@ function TeachingWorkspace({
               </select>
               </div>
               </> : (
-                <div className="night-boundary-summary">
-                  <strong>{definition.boundary.latestArrivalLimit}</strong>
-                  <span>{copy.nightAgentDraftNote}</span>
-                </div>
+                <dl className="night-boundary-summary">
+                  <div>
+                    <dt>{copy.latestArrivalRule}</dt>
+                    <dd>{definition.boundary.latestArrivalLimit}</dd>
+                  </div>
+                  <div>
+                    <dt>{copy.dietaryRule}</dt>
+                    <dd>{copy.handleInPlaybook}</dd>
+                  </div>
+                  <div>
+                    <dt>{copy.taxiRule}</dt>
+                    <dd>{copy.taxiAllow}</dd>
+                  </div>
+                </dl>
               )}
               <button
                 className="primary-action"
@@ -658,6 +673,8 @@ function CaseQueue({
   const [railState, setRailState] = useState({
     canScrollBack: false,
     canScrollForward: false,
+    visibleStart: 0,
+    visibleEnd: Math.min(4, filteredReservations.length),
   });
 
   useEffect(() => {
@@ -670,13 +687,34 @@ function CaseQueue({
     if (!list) return;
     const updateRailState = () => {
       const maxScrollLeft = Math.max(0, list.scrollWidth - list.clientWidth);
+      const items = Array.from(list.children) as HTMLElement[];
+      const visibleLeft = list.scrollLeft;
+      const visibleRight = visibleLeft + list.clientWidth;
+      const fullyVisibleIndexes = items.flatMap((item, index) => {
+        const itemLeft = item.offsetLeft;
+        const itemRight = itemLeft + item.offsetWidth;
+        return itemLeft >= visibleLeft - 1 && itemRight <= visibleRight + 1
+          ? [index]
+          : [];
+      });
+      const firstPartiallyVisible = items.findIndex(
+        (item) => item.offsetLeft + item.offsetWidth > visibleLeft + 1,
+      );
+      const visibleStart =
+        fullyVisibleIndexes[0] ?? Math.max(0, firstPartiallyVisible);
+      const visibleEnd =
+        (fullyVisibleIndexes.at(-1) ?? visibleStart) + (items.length > 0 ? 1 : 0);
       const nextState = {
         canScrollBack: list.scrollLeft > 1,
         canScrollForward: list.scrollLeft < maxScrollLeft - 1,
+        visibleStart,
+        visibleEnd: Math.min(items.length, visibleEnd),
       };
       setRailState((current) =>
         current.canScrollBack === nextState.canScrollBack &&
-        current.canScrollForward === nextState.canScrollForward
+        current.canScrollForward === nextState.canScrollForward &&
+        current.visibleStart === nextState.visibleStart &&
+        current.visibleEnd === nextState.visibleEnd
           ? current
           : nextState,
       );
@@ -717,46 +755,76 @@ function CaseQueue({
     const list = listRef.current;
     if (!list) return;
     list.scrollBy({
-      left: direction * Math.max(240, list.clientWidth * 0.72),
+      left: direction * Math.max(240, list.clientWidth - 1),
       behavior: "smooth",
     });
   }, []);
+
+  const visibleStart = Math.min(
+    railState.visibleStart,
+    Math.max(0, filteredReservations.length - 1),
+  );
+  const visibleEnd = Math.max(
+    Math.min(filteredReservations.length, railState.visibleEnd),
+    filteredReservations.length > 0 ? visibleStart + 1 : 0,
+  );
+  const rangeLabel =
+    filteredReservations.length === 0
+      ? locale === "ja"
+        ? `0 / ${reservations.length}件`
+        : `0 of ${reservations.length}`
+      : locale === "ja"
+        ? `${visibleStart + 1}–${visibleEnd} / ${filteredReservations.length}件`
+        : `${visibleStart + 1}–${visibleEnd} of ${filteredReservations.length}`;
 
   return (
     <nav className="case-queue" aria-label={copy.cases}>
       <div className="case-queue-header">
         <div className="case-queue-title">
           <h2>{copy.cases}</h2>
-          <span aria-live="polite">
-            {locale === "ja"
-              ? `${filteredReservations.length}/${reservations.length}${copy.caseCountUnit}`
-              : `${filteredReservations.length}/${reservations.length} ${copy.caseCountUnit}`}
-          </span>
+          <span aria-live="polite">{rangeLabel}</span>
         </div>
-        <label className="case-search">
-          <span className="sr-only">{copy.caseSearch}</span>
-          <input
-            type="search"
-            value={query}
-            placeholder={copy.caseSearchPlaceholder}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
+        <div className="case-queue-tools">
+          <label className="case-search">
+            <span className="sr-only">{copy.caseSearch}</span>
+            <input
+              type="search"
+              value={query}
+              placeholder={copy.caseSearchPlaceholder}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          <div className="case-pagination" aria-label={copy.cases}>
+            <button
+              className="case-page-control"
+              type="button"
+              aria-label={copy.previousCases}
+              aria-controls="case-list"
+              disabled={!railState.canScrollBack}
+              onClick={() => scrollCases(-1)}
+            >
+              <CaretLeftIcon />
+              <span>{copy.previousCasesShort}</span>
+            </button>
+            <button
+              className="case-page-control"
+              type="button"
+              aria-label={copy.nextCases}
+              aria-controls="case-list"
+              disabled={!railState.canScrollForward}
+              onClick={() => scrollCases(1)}
+            >
+              <span>{copy.nextCasesShort}</span>
+              <CaretRightIcon />
+            </button>
+          </div>
+        </div>
       </div>
       {filteredReservations.length > 0 ? (
         <div className="case-list-wrap">
           <ul className="case-list" id="case-list" ref={listRef}>
             {filteredReservations.map((reservation) => {
             const selected = reservation.id === selectedId;
-            const runForReservation =
-              activeRun?.reservationId === reservation.id ? activeRun : null;
-            const runStateClass =
-              runForReservation?.status === "approved" ||
-              runForReservation?.status === "committed"
-                ? " has-approved-state"
-                : runForReservation?.status === "awaiting_review"
-                  ? " has-awaiting-state"
-                  : "";
             const status = deriveCaseQueueStatus({
               reservation,
               demonstrations,
@@ -770,10 +838,16 @@ function CaseQueue({
               handled: copy.caseHandled,
             };
             const stateLabel = labels[status];
+            const statusStateClass =
+              status === "handled"
+                ? " has-handled-state"
+                : status === "awaiting_review"
+                  ? " has-awaiting-state"
+                  : "";
             return (
               <li key={reservation.id}>
                 <button
-                  className={`case-item${selected ? " is-selected" : ""}${runStateClass}`}
+                  className={`case-item${selected ? " is-selected" : ""}${statusStateClass}`}
                   type="button"
                   aria-current={selected ? "true" : undefined}
                   onClick={() => onSelect(reservation.id)}
@@ -789,28 +863,6 @@ function CaseQueue({
             );
             })}
           </ul>
-          {railState.canScrollBack ? (
-            <button
-              className="case-rail-control is-back"
-              type="button"
-              aria-label={copy.previousCases}
-              aria-controls="case-list"
-              onClick={() => scrollCases(-1)}
-            >
-              <CaretLeftIcon />
-            </button>
-          ) : null}
-          {railState.canScrollForward ? (
-            <button
-              className="case-rail-control is-forward"
-              type="button"
-              aria-label={copy.nextCases}
-              aria-controls="case-list"
-              onClick={() => scrollCases(1)}
-            >
-              <CaretRightIcon />
-            </button>
-          ) : null}
         </div>
       ) : (
         <p className="case-empty">{copy.noMatchingCases}</p>
@@ -913,9 +965,6 @@ function RecordedWorkspace({
 
   return (
     <section className="recorded-workspace" aria-labelledby="recorded-heading">
-      <span className="recorded-kicker">
-        {copy.sourceCaseLabel}
-      </span>
       <h2 id="recorded-heading">
         {canTeach ? copy.unlearnedRecordedHeading : copy.recordedHeading}
       </h2>
@@ -936,13 +985,15 @@ function ProposedChanges({
   return (
     <section className="changes-section" aria-labelledby="changes-heading">
       <h2 id="changes-heading">{copy.proposedChanges}</h2>
-      <div className="changes-timeline">
+      <dl className="changes-list">
         {run.proposedChanges.map((change) => (
-          <div className="change-row" key={change.field}>
-            <span className="timeline-node" aria-hidden="true" />
-            <span className="change-field">{fieldLabel(locale, change.field)}</span>
+          <div
+            className={`change-row${change.before ? " has-before" : ""}`}
+            key={change.field}
+          >
+            <dt className="change-field">{fieldLabel(locale, change.field)}</dt>
             {change.before ? (
-              <span className="change-values">
+              <dd className="change-values">
                 <span
                   lang={
                     locale === "ja" &&
@@ -964,23 +1015,25 @@ function ProposedChanges({
                 >
                   {valueLabel(locale, change.field, change.after)}
                 </strong>
-              </span>
+              </dd>
             ) : (
-              <strong
-                className="change-after"
-                lang={
-                  locale === "ja" &&
-                  (change.field === "Guest message" || change.field === "Handoff")
-                    ? "en"
-                    : undefined
-                }
-              >
-                {valueLabel(locale, change.field, change.after)}
-              </strong>
+              <dd className="change-values is-added">
+                <strong
+                  className="change-after"
+                  lang={
+                    locale === "ja" &&
+                    (change.field === "Guest message" || change.field === "Handoff")
+                      ? "en"
+                      : undefined
+                  }
+                >
+                  {valueLabel(locale, change.field, change.after)}
+                </strong>
+              </dd>
             )}
           </div>
         ))}
-      </div>
+      </dl>
       <p className={`application-note${applied ? " is-applied" : ""}`}>
         {applied ? copy.applied : copy.notApplied}
       </p>
@@ -1118,11 +1171,12 @@ function ApprovalStatus({
   }
 
   return (
-    <div className="approval-status-card">
+    <section className="approval-status-card" aria-label={copy.approvedReady}>
       <div className="approval-status-title">
         <CheckIcon className="approval-status-icon" />
         <div>
           <strong>{copy.approvedReady}</strong>
+          <span>{copy.criteriaAllPassed}</span>
           {webMcpStatus === "ready" ? null : (
             <span>{copy.approvedWithoutWebMcp}</span>
           )}
@@ -1137,7 +1191,7 @@ function ApprovalStatus({
         </div>
       ) : null}
       <p>{copy.approvalExactOnly}</p>
-    </div>
+    </section>
   );
 }
 
@@ -1155,15 +1209,9 @@ function ApprovalScope({
       <strong id="approval-scope-heading">{copy.approvalScope}</strong>
       <dl>
         <div>
-          <dt>{copy.approvalTarget}</dt>
-          <dd>{run.reservationId}</dd>
-        </div>
-        <div>
-          <dt>{copy.approvalFields}</dt>
+          <dt>{run.reservationId}</dt>
           <dd>
-            {run.proposedChanges
-              .map((change) => fieldLabel(locale, change.field))
-              .join(locale === "ja" ? "・" : ", ")}
+            {run.proposedChanges.length} {copy.approvalChangeCountUnit}
           </dd>
         </div>
         <div>
@@ -1254,9 +1302,6 @@ function ReviewPanel({
       )}
       {isSourceCase ? (
         <div className="source-case-note">
-          <strong>
-            {copy.sourceCaseLabel}
-          </strong>
           <p>{canTeach ? copy.unlearnedSourceCaseBody : copy.sourceCaseBody}</p>
           {canTeach ? (
             <button className="primary-action" type="button" onClick={onTeach}>
@@ -1276,13 +1321,9 @@ function ReviewPanel({
               const failed = failedCriteria.has(index);
               return (
                 <li className={failed ? "is-failed" : "is-passed"} key={item}>
-                  {failed ? (
-                    <CloseIcon className="criterion-fail-icon" />
-                  ) : (
-                    <CheckIcon className="check-icon" />
-                  )}
+                  {failed ? <CloseIcon className="criterion-fail-icon" /> : null}
                   <span>{item}</span>
-                  <span className="sr-only">
+                  <span className="criterion-status">
                     {failed ? copy.criterionRefused : copy.criterionPassed}
                   </span>
                 </li>
@@ -1295,21 +1336,17 @@ function ReviewPanel({
           </div>
         </>
       ) : showCriteriaSummary ? (
-        <div className="criteria-complete-summary">
-          <CheckIcon className="check-icon" />
-          <strong>{copy.criteriaAllPassed}</strong>
-        </div>
+        isApproved || isCommitted ? null : (
+          <div className="criteria-complete-summary">
+            <strong>{copy.criteriaAllPassed}</strong>
+          </div>
+        )
       ) : (
         <ul className="eligibility-list" id="approval-criteria">
           {eligibility.map((item) => (
             <li className={criteriaPassed ? "is-passed" : "is-pending"} key={item}>
-              {criteriaPassed ? (
-                <CheckIcon className="check-icon" />
-              ) : (
-                <CircleIcon className="pending-icon" />
-              )}
               <span>{item}</span>
-              <span className="sr-only">
+              <span className="criterion-status">
                 {criteriaPassed ? copy.criterionPassed : copy.criterionPending}
               </span>
             </li>
@@ -1321,12 +1358,9 @@ function ReviewPanel({
         {!isSourceCase && playbookId && !isRejected ? (
           <>
             {(!run || isDiscarded) ? (
-              <>
-                <button className="primary-action" type="button" onClick={onPrepare}>
-                  {copy.preparePreview}
-                </button>
-                <p className="action-note">{copy.prepareNoSideEffect}</p>
-              </>
+              <button className="primary-action" type="button" onClick={onPrepare}>
+                {copy.preparePreview}
+              </button>
             ) : isAwaiting ? (
               <button
                 className="primary-action"
@@ -1375,7 +1409,6 @@ function ReviewPanel({
         ) : null}
       </div>
       <footer className="demo-footnote">
-        <span>{copy.demoDataNotice}</span>
         <button className="text-button audit-link" type="button" onClick={onAudit}>
           {copy.viewAudit}
         </button>

@@ -6,9 +6,11 @@
   text-rendering: optimizeLegibility;
   --bg: #fffefc;
   --rail: #faf9f7;
+  --case-selected: #f3f0e9;
   --text: #111111;
   --muted: #66615e;
   --border: #d7d4d1;
+  --border-soft: #ebe8e4;
   --selected: #fff2f0;
   --accent: #e1251b;
   --accent-dark: #c9251b;
@@ -115,6 +117,7 @@ a:focus-visible {
 }
 
 .header-actions .text-button {
+  border-bottom: 0;
   white-space: nowrap;
 }
 
@@ -516,43 +519,31 @@ a:focus-visible {
   letter-spacing: -0.025em;
 }
 
-.changes-timeline {
-  position: relative;
-  margin-left: 4px;
-  padding-left: 32px;
-}
-
-.changes-timeline::before {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 3px;
-  width: 2px;
-  background: var(--accent);
-  content: "";
+.changes-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border-top: 0;
 }
 
 .change-row {
-  position: relative;
-  min-height: 74px;
+  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(120px, 0.65fr) minmax(260px, 1.6fr);
+  grid-template-columns: minmax(120px, 0.62fr) minmax(260px, 1.7fr);
   align-items: center;
-  gap: 22px;
-  border-bottom: 1px solid var(--border);
-}
-
-.change-row:last-child {
+  gap: 24px;
+  padding: 12px 0;
   border-bottom: 0;
 }
 
-.timeline-node {
-  position: absolute;
-  left: -35px;
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  background: var(--accent);
+.change-row + .change-row {
+  border-top: 1px solid var(--border-soft);
+}
+
+.change-row dt,
+.change-row dd {
+  margin: 0;
 }
 
 .change-field {
@@ -567,6 +558,10 @@ a:focus-visible {
   align-items: center;
   gap: 16px;
   color: var(--muted);
+}
+
+.change-values.is-added {
+  display: block;
 }
 
 .change-arrow {
@@ -613,16 +608,7 @@ a:focus-visible {
 .recorded-workspace {
   max-width: 560px;
   padding: 24px 0 0;
-  border-top: 2px solid var(--accent);
-}
-
-.recorded-kicker {
-  display: inline-block;
-  margin-bottom: 12px;
-  color: var(--accent-dark);
-  font-size: 13px;
-  line-height: 18px;
-  font-weight: 700;
+  border-top: 0;
 }
 
 .rejected-result {
@@ -667,26 +653,20 @@ a:focus-visible {
 
 .criteria-state {
   flex: 0 0 auto;
-  padding: 4px 9px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  padding: 0;
+  border: 0;
   color: var(--muted);
-  background: var(--bg);
   font-size: 12px;
   line-height: 18px;
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .criteria-state.is-passed {
-  border-color: #96c7aa;
   color: var(--success);
-  background: #f2faf5;
 }
 
 .criteria-state.is-refused {
-  border-color: #d7a5a0;
   color: var(--accent-dark);
-  background: var(--selected);
 }
 
 .webmcp-availability {
@@ -766,12 +746,11 @@ a:focus-visible {
 }
 
 .criteria-complete-summary {
-  min-height: 58px;
+  min-height: 50px;
   display: flex;
   align-items: center;
-  gap: 14px;
   margin: 0 34px;
-  padding: 14px 0;
+  padding: 12px 0;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   color: var(--success);
@@ -786,13 +765,18 @@ a:focus-visible {
 }
 
 .eligibility-list li {
-  min-height: 50px;
-  display: flex;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 18px;
-  border-bottom: 1px solid var(--border);
-  font-size: 16px;
-  line-height: 23px;
+  gap: 16px;
+  border-bottom: 0;
+  font-size: 14px;
+  line-height: 21px;
+}
+
+.eligibility-list li + li {
+  border-top: 1px solid var(--border-soft);
 }
 
 .eligibility-list li.is-pending {
@@ -800,8 +784,25 @@ a:focus-visible {
 }
 
 .eligibility-list li.is-failed {
+  grid-template-columns: 22px minmax(0, 1fr) auto;
   color: var(--accent-dark);
   font-weight: 650;
+}
+
+.criterion-status {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 17px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.eligibility-list li.is-passed .criterion-status {
+  color: var(--success);
+}
+
+.eligibility-list li.is-failed .criterion-status {
+  color: var(--accent-dark);
 }
 
 .check-icon {
@@ -818,22 +819,10 @@ a:focus-visible {
   color: var(--accent);
 }
 
-.pending-icon {
-  flex: 0 0 18px;
-  width: 18px;
-  height: 18px;
-  margin: 0 2px;
-  border: 1.5px solid #aaa5a1;
-  border-radius: 999px;
-  background: transparent;
-}
-
 .approval-scope {
   margin: 0 34px 20px;
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--bg);
+  padding: 18px 0 0;
+  border-top: 1px solid var(--border);
 }
 
 .approval-scope > strong {
@@ -845,13 +834,13 @@ a:focus-visible {
 
 .approval-scope dl {
   display: grid;
-  gap: 8px;
+  gap: 7px;
   margin: 0;
 }
 
 .approval-scope dl > div {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
+  grid-template-columns: minmax(120px, auto) minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -864,6 +853,16 @@ a:focus-visible {
 
 .approval-scope dt {
   color: var(--muted);
+}
+
+.approval-scope dl > div:first-child dt {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.approval-scope dl > div:first-child dd {
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .approval-scope dd {
@@ -882,18 +881,9 @@ a:focus-visible {
   margin: 0 34px;
 }
 
-.action-note {
-  margin: -4px 2px 2px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 19px;
-}
-
 .approval-status-card {
-  padding: 18px;
-  border: 1px solid #96c7aa;
-  border-radius: 7px;
-  background: #f2faf5;
+  padding: 18px 0 0;
+  border-top: 1px solid var(--border);
 }
 
 .approval-status-title {
@@ -933,7 +923,7 @@ a:focus-visible {
   gap: 14px;
   margin-top: 16px;
   padding-top: 13px;
-  border-top: 1px solid #bfdeca;
+  border-top: 1px solid var(--border);
   font-size: 13px;
   line-height: 20px;
 }
@@ -957,10 +947,8 @@ a:focus-visible {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 18px;
-  border: 1px solid #96c7aa;
-  border-radius: 7px;
-  background: #f2faf5;
+  padding: 18px 0 0;
+  border-top: 1px solid var(--border);
 }
 
 .completion-status strong {
@@ -1584,6 +1572,50 @@ a:focus-visible {
   width: min(280px, 36vw);
 }
 
+.case-queue-tools,
+.case-pagination {
+  display: flex;
+  align-items: center;
+}
+
+.case-queue-tools {
+  justify-content: flex-end;
+  gap: 20px;
+}
+
+.case-pagination {
+  gap: 14px;
+}
+
+.case-page-control {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.case-page-control:not(:disabled):hover {
+  color: var(--text);
+  background: #f7f4ed;
+}
+
+.case-page-control svg {
+  width: 14px;
+  height: 14px;
+}
+
+.case-page-control:disabled {
+  color: #aaa59e;
+  cursor: default;
+}
+
 .case-search input {
   width: 100%;
   min-height: 36px;
@@ -1622,41 +1654,6 @@ a:focus-visible {
   min-width: 0;
 }
 
-.case-rail-control {
-  position: absolute;
-  z-index: 2;
-  top: 50%;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  transform: translateY(-50%);
-  border: 1px solid var(--text);
-  border-radius: 999px;
-  background: var(--bg);
-  color: var(--text);
-  cursor: pointer;
-  transition: opacity 140ms ease, color 140ms ease;
-}
-
-.case-rail-control.is-back {
-  left: 12px;
-}
-
-.case-rail-control.is-forward {
-  right: 12px;
-}
-
-.case-rail-control svg {
-  width: 18px;
-  height: 18px;
-}
-
-.case-rail-control:hover {
-  color: var(--accent-dark);
-}
-
 .case-list::-webkit-scrollbar {
   display: none;
 }
@@ -1688,7 +1685,11 @@ a:focus-visible {
 
 .case-item.is-selected {
   border-bottom-color: var(--text);
-  background: transparent;
+  background: var(--case-selected);
+}
+
+.case-item.is-selected:hover {
+  background: var(--case-selected);
 }
 
 .case-item.is-selected::before,
@@ -1732,7 +1733,7 @@ a:focus-visible {
   color: var(--accent-dark);
 }
 
-.case-item.has-approved-state .case-secondary {
+.case-item.has-handled-state .case-secondary {
   color: var(--success);
 }
 
@@ -1765,6 +1766,7 @@ a:focus-visible {
 
 .reservation-meta {
   padding-bottom: 28px;
+  border-bottom: 0;
   font-family: "Yu Mincho", "Hiragino Mincho ProN", Georgia, serif;
   font-size: 15px;
 }
@@ -1778,7 +1780,7 @@ a:focus-visible {
   margin-top: 26px;
   padding: 16px 0;
   border: 0;
-  border-bottom: 1px dashed var(--border);
+  border-bottom: 0;
   border-radius: 0;
   background: transparent;
 }
@@ -1791,23 +1793,35 @@ a:focus-visible {
 }
 
 .night-boundary-summary {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin: 18px 0;
-  padding: 14px 16px;
-  border: 1px solid var(--success);
-  background: #f4f8f3;
+  display: grid;
+  gap: 0;
+  margin: 0 0 18px;
+  padding: 0;
+  border-top: 1px solid var(--border);
 }
 
-.night-boundary-summary strong {
-  font-size: 20px;
+.night-boundary-summary > div {
+  min-height: 50px;
+  display: grid;
+  grid-template-columns: minmax(130px, 0.9fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
 }
 
-.night-boundary-summary span {
-  color: var(--muted);
+.night-boundary-summary dt,
+.night-boundary-summary dd {
+  margin: 0;
   font-size: 13px;
   line-height: 19px;
+}
+
+.night-boundary-summary dt {
+  color: var(--muted);
+}
+
+.night-boundary-summary dd {
+  font-weight: 650;
 }
 
 .source-case-note .primary-action {
@@ -1847,6 +1861,10 @@ a:focus-visible {
   gap: 40px;
   padding: 24px 0 26px;
   border-bottom: 1px solid var(--border);
+}
+
+.changes-section {
+  padding-top: 30px;
 }
 
 .reservation-facts span {
@@ -1894,7 +1912,7 @@ a:focus-visible {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 44px 0 0;
+  padding: 58px 0 0;
   border-top: 0;
   border-left: 1px solid var(--border);
   background: var(--bg);
@@ -1955,20 +1973,11 @@ a:focus-visible {
 }
 
 .eligibility-list li {
-  min-height: 51px;
+  min-height: 44px;
   gap: 16px;
-  font-family: "Yu Mincho", "Hiragino Mincho ProN", Georgia, serif;
-  font-size: 15px;
-}
-
-.pending-icon {
-  flex: 0 0 22px;
-  width: 22px;
-  height: 22px;
-  margin: 0;
-  border: 0;
-  color: #8c8983;
-  background: transparent;
+  font-family: "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
 }
 
 .approval-scope,
@@ -1978,7 +1987,7 @@ a:focus-visible {
 
 .review-actions {
   order: 4;
-  margin: 0 44px;
+  margin: 24px 44px 0;
 }
 
 .primary-action,
@@ -1994,19 +2003,15 @@ a:focus-visible {
   box-shadow: none;
 }
 
-.action-note {
-  margin-top: 2px;
-  font-size: 12px;
-  line-height: 20px;
-}
-
 .demo-footnote {
   order: 5;
+  min-height: 64px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 6px;
-  margin-top: 32px;
-  padding: 20px 44px 10px;
+  margin-top: auto;
+  padding: 14px 44px;
   border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: 12px;
@@ -2019,8 +2024,9 @@ a:focus-visible {
   align-self: center;
   justify-self: start;
   min-height: 30px;
-  margin-top: 4px;
+  margin-top: 0;
   padding: 2px 0;
+  border-bottom: 0;
   color: var(--text);
   font-size: 12px;
   line-height: 18px;
@@ -2074,7 +2080,7 @@ a:focus-visible {
   .review-panel {
     grid-row: 2;
     grid-column: 2;
-    padding-top: 38px;
+    padding-top: 48px;
     border-top: 0;
     border-left: 1px solid var(--border);
   }
@@ -2150,13 +2156,26 @@ a:focus-visible {
 
   .case-queue-header {
     min-height: 0;
+    flex-direction: column;
     align-items: stretch;
     gap: 12px;
     padding: 12px 20px;
   }
 
+  .case-queue-tools {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px 14px;
+  }
+
   .case-search {
-    width: min(210px, 54vw);
+    width: auto;
+    flex: 1 1 190px;
+  }
+
+  .case-pagination {
+    margin-left: auto;
   }
 
   .case-search input {
@@ -2259,6 +2278,7 @@ a:focus-visible {
   }
 
   .demo-footnote {
+    margin-top: 32px;
     grid-template-columns: minmax(0, 1fr);
     padding-right: 20px;
     padding-left: 20px;
@@ -2269,22 +2289,6 @@ a:focus-visible {
     grid-column: 1;
   }
 
-  body:has(.review-panel .eligibility-list .is-pending) {
-    padding-bottom: 88px;
-  }
-
-  .review-panel:has(.eligibility-list .is-pending)
-    .review-actions
-    .primary-action {
-    position: fixed;
-    right: 16px;
-    bottom: max(12px, env(safe-area-inset-bottom));
-    left: 16px;
-    z-index: 20;
-    width: auto;
-    min-height: 60px;
-    box-shadow: 0 10px 28px rgb(23 21 18 / 16%);
-  }
 }
 
 /* Teaching flow — remains inside the Home workspace */
@@ -2428,19 +2432,29 @@ a:focus-visible {
 }
 
 .teaching-rule-panel .journey-steps li:not(:last-child)::after {
-  content: "";
-  min-width: 12px;
-  height: 1px;
-  flex: 1 1 auto;
-  margin-left: 2px;
-  background: var(--border);
+  display: none;
 }
 
 .teaching-rule-panel .journey-steps li > span {
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
+  width: auto;
+  height: auto;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 0;
+  color: var(--muted);
+  background: transparent;
   font-size: 11px;
+}
+
+.teaching-rule-panel .journey-steps li.is-complete > span,
+.teaching-rule-panel .journey-steps li.is-active > span {
+  border: 0;
+  color: var(--text);
+  background: transparent;
+}
+
+.teaching-rule-panel .journey-steps li.is-active strong {
+  color: var(--accent-dark);
 }
 
 .teaching-rule-panel .journey-steps strong {
@@ -2550,8 +2564,27 @@ a:focus-visible {
   margin-top: 4px;
 }
 
+.boundary-section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--text);
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.boundary-section-heading span,
+.draft-rules-heading span {
+  color: var(--muted);
+  font-weight: 500;
+}
+
 .teaching-rule-panel .fixed-rules li {
-  min-height: 45px;
+  min-height: 42px;
+  font-family: "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 @media (min-width: 768px) and (max-width: 1279px) {

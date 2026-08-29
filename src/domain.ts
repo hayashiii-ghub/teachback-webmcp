@@ -111,7 +111,7 @@ export interface AuditEvent {
 }
 
 export interface AppState {
-  storageVersion: 1;
+  storageVersion: 2;
   reservations: Reservation[];
   selectedReservationId: string;
   activeRun: PreparedRun | null;

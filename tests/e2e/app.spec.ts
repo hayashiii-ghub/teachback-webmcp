@@ -21,16 +21,15 @@ test("prepares, approves, and keeps commit bound to the agent tool", async ({ pa
     ),
   ).toBeVisible();
   await expect(
-    page.getByText("All people and reservation details shown here are fictional", {
-      exact: true,
-    }),
-  ).toBeVisible();
-  await expect(
     page.locator(".case-list").getByText("Handled", { exact: true }),
   ).toHaveCount(2);
   await expect(
     page.locator(".case-list").getByText("Unhandled", { exact: true }),
-  ).toHaveCount(2);
+  ).toHaveCount(6);
+  await expect(page.getByText(/^\d+–\d+ of 8$/)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Show more cases" }),
+  ).toBeEnabled();
   await expect(page.getByText("Ready to teach", { exact: true })).toHaveCount(0);
   await expect(page.getByText("No matching rule", { exact: true })).toHaveCount(0);
   await expect(
@@ -48,13 +47,6 @@ test("prepares, approves, and keeps commit bound to the agent tool", async ({ pa
   await expect(
     page.getByText("Review only", { exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByText(
-      "This checks conditions and creates a preview only.",
-      { exact: true },
-    ),
-  ).toBeVisible();
-
   await page
     .getByRole("button", {
       name: "Check conditions and prepare preview",
@@ -63,18 +55,22 @@ test("prepares, approves, and keeps commit bound to the agent tool", async ({ pa
     .click();
   await expect(page.getByRole("heading", { name: "Proposed changes" })).toBeVisible();
   await expect(page.getByText("No changes have been applied.")).toBeVisible();
-  await expect(page.getByText("Eligible", { exact: true })).toBeVisible();
-  await expect(page.locator(".eligibility-list .check-icon")).toHaveCount(7);
-  await expect(page.getByText("Approval scope", { exact: true })).toBeVisible();
-  await expect(page.getByText("This exact proposal · once · within 5 minutes", {
+  await expect(page.getByText("7 of 7 conditions met", { exact: true })).toBeVisible();
+  await expect(page.locator(".eligibility-list .check-icon")).toHaveCount(0);
+  await expect(page.getByText("Approval", { exact: true })).toBeVisible();
+  await expect(page.getByText("One use after approval · valid for 5 minutes", {
     exact: true,
   })).toBeVisible();
+  await expect(page.locator(".timeline-node")).toHaveCount(0);
+  await expect(page.locator(".approval-scope")).toHaveCSS("border-top-width", "1px");
+  await expect(page.locator(".approval-scope")).toHaveCSS("border-right-width", "0px");
   await expect(page.getByText("teachback_commit_approved", { exact: true }))
     .toHaveCount(0);
 
   await page.getByRole("button", { name: "Approve preview" }).click();
-  await expect(page.getByText("Approved · waiting to apply", { exact: true }))
+  await expect(page.getByText("Approved for this proposal", { exact: true }))
     .toBeVisible();
+  await expect(page.getByText("7/7 conditions met", { exact: true })).toBeVisible();
   await expect(page.getByText("Awaiting review", { exact: true })).toBeVisible();
   await expect(
     page.getByText(
@@ -113,8 +109,6 @@ test("switches to Japanese without changing the prepared run", async ({ page }) 
       { exact: true },
     ),
   ).toBeVisible();
-  await expect(page.getByText("表示中の人物・予約情報はすべて架空です", { exact: true }))
-    .toBeVisible();
   await page
     .getByRole("button", { name: "条件を確認して変更案を作る", exact: true })
     .click();
@@ -218,7 +212,16 @@ test("teaches a second playbook and unlocks Daniel", async ({ page }) => {
   await expect(page.locator(".teaching-record li")).toHaveCount(5);
 
   await page.getByRole("button", { name: "Create draft" }).click();
-  await expect(page.getByText("Arrival is by 23:59", { exact: true })).toBeVisible();
+  await expect(page.getByText("Fixed safeguards", { exact: true })).toBeVisible();
+  await expect(page.getByText("Set the boundary", { exact: true })).toBeVisible();
+  await expect(page.getByText("Latest arrival", { exact: true })).toBeVisible();
+  await expect(page.locator(".night-boundary-summary").getByText("23:59", {
+    exact: true,
+  })).toBeVisible();
+  await expect(page.locator(".night-boundary-summary")).toHaveCSS(
+    "border-right-width",
+    "0px",
+  );
   await page
     .getByRole("button", { name: "Publish reusable rule" })
     .click();
@@ -316,7 +319,6 @@ test("treats the recorded reservation as the teaching source", async ({ page }) 
   await expect(
     page.getByRole("button", { name: /R-2041\s+Aiko Tanaka\s+Handled/ }),
   ).toBeVisible();
-  await expect(page.locator(".recorded-kicker")).toHaveText("Handled");
   await expect(
     page.getByRole("button", {
       name: "Check conditions and prepare preview",
@@ -339,7 +341,7 @@ test("returns the checklist to pending after discarding a preview", async ({
       exact: true,
     })
     .click();
-  await expect(page.getByText("Eligible", { exact: true })).toBeVisible();
+  await expect(page.getByText("7 of 7 conditions met", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Discard" }).click();
   await expect(page.getByText("Not checked yet", { exact: true })).toBeVisible();
@@ -693,7 +695,7 @@ test("recovers safely from malformed saved state", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Reset demo" })).toBeVisible();
   const savedStateIsValid = await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem("teachback-demo-v1") ?? "null");
-    return Array.isArray(saved?.reservations) && saved.reservations.length === 4;
+    return Array.isArray(saved?.reservations) && saved.reservations.length === 8;
   });
   expect(savedStateIsValid).toBe(true);
 });
