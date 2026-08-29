@@ -237,7 +237,7 @@ export const UI_COPY = {
     englishLanguage: "English",
     japaneseLanguage: "日本語",
     resetDemo: "デモをリセット",
-    primaryPitch: "一度教えた対応を、条件と承認付きで再利用する。",
+    primaryPitch: "教えた対応を、条件と承認付きで再利用する。",
     teachingHeadline: "対応例から再利用ルールを作る",
     teachingBody:
       "記録した対応をもとに、エージェントが条件を提案します。公開前に担当者が内容を確認します。",

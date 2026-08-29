@@ -105,7 +105,7 @@ test("switches to Japanese without changing the prepared run", async ({ page }) 
   await expect(page.getByText("Built in Japan", { exact: true })).toHaveCount(0);
   await expect(
     page.getByText(
-      "一度教えた対応を、条件と承認付きで再利用する。",
+      "教えた対応を、条件と承認付きで再利用する。",
       { exact: true },
     ),
   ).toBeVisible();
@@ -536,7 +536,7 @@ test("keeps intermediate-width sections in a coherent reading order", async ({
 
   await page.setViewportSize({ width: 1024, height: 900 });
   const wideTablet = await readLayout();
-  expect(wideTablet.header.height).toBe(100);
+  expect(wideTablet.header.height).toBe(84);
   expect(wideTablet.cases).toMatchObject({ x: 0, width: 1024 });
   expect(wideTablet.main.x).toBe(0);
   expect(wideTablet.main.y).toBe(wideTablet.review.y);
@@ -546,7 +546,7 @@ test("keeps intermediate-width sections in a coherent reading order", async ({
   for (const width of [1023, 900, 768]) {
     await page.setViewportSize({ width, height: 900 });
     const splitTablet = await readLayout();
-    expect(splitTablet.header.height, `header at ${width}px`).toBe(100);
+    expect(splitTablet.header.height, `header at ${width}px`).toBe(84);
     expect(splitTablet.cases, `cases at ${width}px`).toMatchObject({
       x: 0,
       width,

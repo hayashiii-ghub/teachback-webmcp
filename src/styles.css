@@ -1465,14 +1465,14 @@ a:focus-visible {
 }
 
 .app-header {
-  min-height: 100px;
+  min-height: 84px;
   padding: 0 42px;
   background: var(--bg);
 }
 
 .brand {
   font-family: "Iowan Old Style", Baskerville, "Yu Mincho", Georgia, serif;
-  font-size: clamp(46px, 4vw, 58px);
+  font-size: clamp(42px, 3.5vw, 50px);
   line-height: 1;
   letter-spacing: -0.045em;
 }
@@ -1487,7 +1487,7 @@ a:focus-visible {
 }
 
 .product-context-row {
-  min-height: 82px;
+  min-height: 64px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: center;
@@ -1506,8 +1506,8 @@ a:focus-visible {
 .demo-intro strong {
   font-family: "Yu Mincho", "Hiragino Mincho ProN", "Iowan Old Style", Georgia,
     serif;
-  font-size: clamp(20px, 1.7vw, 26px);
-  line-height: 1.45;
+  font-size: clamp(18px, 1.5vw, 22px);
+  line-height: 1.4;
   font-weight: 600;
   letter-spacing: 0;
 }
@@ -1516,7 +1516,7 @@ a:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1.68fr) minmax(360px, 0.92fr);
   grid-template-rows: auto minmax(0, 1fr);
-  min-height: calc(100vh - 182px);
+  min-height: calc(100vh - 148px);
 }
 
 .case-queue {
@@ -2115,12 +2115,12 @@ a:focus-visible {
   .app-header {
     min-height: 0;
     gap: 12px;
-    padding: 20px;
+    padding: 16px 20px;
   }
 
   .brand {
-    font-size: 40px;
-    line-height: 42px;
+    font-size: 36px;
+    line-height: 38px;
   }
 
   .header-actions {
@@ -2135,12 +2135,12 @@ a:focus-visible {
     min-height: 0;
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
-    padding: 22px 20px 20px;
+    padding: 16px 20px;
   }
 
   .demo-intro strong {
-    font-size: 19px;
-    line-height: 29px;
+    font-size: 18px;
+    line-height: 27px;
   }
 
   .app-grid {
