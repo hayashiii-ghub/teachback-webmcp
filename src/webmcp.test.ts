@@ -14,6 +14,7 @@ import { createWebMcpTools } from "./webmcp";
 function harness(initialJourney = createPublishedJourney()) {
   let state = createInitialState();
   let journey = initialJourney;
+  const calls: Array<{ name: string; code: string }> = [];
   const tools = createWebMcpTools({
     getState: () => state,
     commitState: (expectedState: AppState, nextState: AppState) => {
@@ -30,9 +31,11 @@ function harness(initialJourney = createPublishedJourney()) {
       journey = nextState;
       return true;
     },
+    reportWebMcpCall: (call: { name: string; code: string }) => calls.push(call),
   });
   return {
     tools,
+    calls,
     getState: () => state,
     setState: (next: AppState) => (state = next),
     getJourney: () => journey,
@@ -88,6 +91,10 @@ describe("WebMCP tool adapter", () => {
     expect(current.code).toBe("CURRENT_CASE");
     expect(prepared.code).toBe("RUN_PREPARED");
     expect(testHarness.getState().activeRun?.status).toBe("awaiting_review");
+    expect(testHarness.calls).toEqual([
+      { name: "teachback_get_current_case", code: "CURRENT_CASE" },
+      { name: "teachback_prepare_current", code: "RUN_PREPARED" },
+    ]);
   });
 
   it("reads and drafts the second recorded demonstration separately", async () => {
@@ -114,6 +121,7 @@ describe("WebMCP tool adapter", () => {
         latest_arrival_limit: "23:59",
         taxi_handling: "allow",
         dietary_handling: "allow",
+        compensation_handling: "allow",
       }),
     );
 
@@ -123,6 +131,9 @@ describe("WebMCP tool adapter", () => {
     expect(testHarness.getJourney().draft?.playbookId).toBe(
       NIGHT_ARRIVAL_PLAYBOOK.id,
     );
+    expect(
+      testHarness.getJourney().draft?.boundary.compensationHandling,
+    ).toBe("allow");
     expect(testHarness.getJourney().publishedPlaybooks).toHaveLength(1);
   });
 

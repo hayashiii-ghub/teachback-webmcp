@@ -6,11 +6,12 @@ export type MealService = "regular_dinner" | "late_meal_box" | "none";
 export type LatestArrivalLimit = "22:00" | "23:00" | "23:59";
 export type TaxiHandling = "allow" | "escalate";
 export type DietaryHandling = "allow" | "escalate";
+export type CompensationHandling = "allow" | "escalate";
 export interface PlaybookBoundary {
   latestArrivalLimit: LatestArrivalLimit;
   taxiHandling: TaxiHandling;
   dietaryHandling: DietaryHandling;
-  compensationHandling: "escalate";
+  compensationHandling: CompensationHandling;
   approvalRequired: true;
 }
 

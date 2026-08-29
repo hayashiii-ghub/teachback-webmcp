@@ -28,7 +28,11 @@ import {
   selectReservation,
   selectedReservation,
 } from "./application";
-import { registerWebMcpTools } from "./webmcp";
+import {
+  WEBMCP_TOOL_COUNT,
+  registerWebMcpTools,
+  type WebMcpCall,
+} from "./webmcp";
 import {
   AGENT_DRAFT_BOUNDARY,
   LATE_ARRIVAL_PLAYBOOK,
@@ -75,7 +79,7 @@ const STORAGE_KEY = "teachback-demo-v1";
 const LOCALE_STORAGE_KEY = "teachback-ui-locale-v1";
 const TEACHING_STORAGE_KEY = "teachback-teaching-v4";
 const TEACHING_SCENARIO_VERSION_KEY = "teachback-teaching-scenario-version";
-const TEACHING_SCENARIO_VERSION = "4";
+const TEACHING_SCENARIO_VERSION = "5";
 
 type WebMcpStatus = "checking" | "ready" | "unavailable" | "error";
 
@@ -444,6 +448,7 @@ function TeachingWorkspace({
     latestArrivalLimit?: "22:00" | "23:00" | "23:59";
     taxiHandling?: "allow" | "escalate";
     dietaryHandling?: "allow" | "escalate";
+    compensationHandling?: "allow" | "escalate";
   }): void;
   onPublish(): void;
   onBack(): void;
@@ -461,7 +466,7 @@ function TeachingWorkspace({
     ? copy.nightDemonstrationActionLabels
     : copy.demonstrationActionLabels;
   const fixedRuleLabels = isNight
-    ? copy.nightFixedRuleLabels.filter((_, index) => [0, 1, 5, 6].includes(index))
+    ? copy.nightFixedRuleLabels.filter((_, index) => [0, 1, 6].includes(index))
     : copy.fixedRuleLabels;
 
   return (
@@ -595,7 +600,7 @@ function TeachingWorkspace({
                 <option value="escalate">{copy.taxiEscalate} · {copy.humanBoundary}</option>
               </select>
               </div>
-              </> : (
+              </> : (<>
                 <dl className="night-boundary-summary">
                   <div>
                     <dt>{copy.latestArrivalRule}</dt>
@@ -610,7 +615,36 @@ function TeachingWorkspace({
                     <dd>{copy.taxiAllow}</dd>
                   </div>
                 </dl>
-              )}
+                <div
+                  className={`boundary-control${
+                    draft.boundary.compensationHandling === "escalate"
+                      ? " is-safe"
+                      : " is-risky"
+                  }`}
+                >
+                  <label htmlFor="compensation-boundary">
+                    {copy.compensationRule}
+                  </label>
+                  <select
+                    id="compensation-boundary"
+                    value={draft.boundary.compensationHandling}
+                    onChange={(event) =>
+                      onBoundaryChange({
+                        compensationHandling: event.target.value as
+                          | "allow"
+                          | "escalate",
+                      })
+                    }
+                  >
+                    <option value="allow">
+                      {copy.compensationAllow} · {copy.agentProposal}
+                    </option>
+                    <option value="escalate">
+                      {copy.compensationEscalate} · {copy.humanBoundary}
+                    </option>
+                  </select>
+                </div>
+              </>)}
               <button
                 className="primary-action"
                 type="button"
@@ -620,7 +654,11 @@ function TeachingWorkspace({
                 {copy.publishPlaybook}
               </button>
               <p className={`publish-note${publishable ? " is-ready" : ""}`}>
-                {publishable ? copy.publishReady : copy.publishBlocked}
+                {publishable
+                  ? copy.publishReady
+                  : isNight
+                    ? copy.nightPublishBlocked
+                    : copy.publishBlocked}
               </p>
             </div>
           ) : null}
@@ -1421,6 +1459,8 @@ function AuditDrawer({
   locale,
   open,
   events,
+  webMcpStatus,
+  lastWebMcpCall,
   onClose,
   backgroundRef,
   returnFocusRef,
@@ -1428,6 +1468,8 @@ function AuditDrawer({
   locale: UiLocale;
   open: boolean;
   events: AppState["audit"];
+  webMcpStatus: WebMcpStatus;
+  lastWebMcpCall: WebMcpCall | null;
   onClose(): void;
   backgroundRef: RefObject<HTMLDivElement | null>;
   returnFocusRef: RefObject<HTMLButtonElement | null>;
@@ -1488,6 +1530,12 @@ function AuditDrawer({
   }, [backgroundRef, onClose, open, returnFocusRef]);
 
   if (!open) return null;
+  const webMcpConnectionLabel =
+    webMcpStatus === "ready"
+      ? copy.webMcpConnected
+      : webMcpStatus === "checking"
+        ? copy.webMcpCheckingConnection
+        : copy.webMcpNotConnected;
   return (
     <div className="drawer-backdrop" role="presentation" onMouseDown={onClose}>
       <section
@@ -1511,6 +1559,28 @@ function AuditDrawer({
           </button>
         </div>
         <p className="audit-evidence">{copy.auditEvidence}</p>
+        <details className="webmcp-evidence">
+          <summary>
+            <span>{webMcpConnectionLabel}</span>
+            {webMcpStatus === "ready" ? (
+              <span>{WEBMCP_TOOL_COUNT} {copy.webMcpToolCount}</span>
+            ) : null}
+          </summary>
+          {lastWebMcpCall ? (
+            <dl>
+              <div>
+                <dt>{copy.webMcpLastCall}</dt>
+                <dd><code>{lastWebMcpCall.name}</code></dd>
+              </div>
+              <div>
+                <dt>{copy.webMcpResult}</dt>
+                <dd><code>{lastWebMcpCall.code}</code></dd>
+              </div>
+            </dl>
+          ) : (
+            <p>{copy.webMcpNoCalls}</p>
+          )}
+        </details>
         <ol className="audit-events">
           {[...events].reverse().map((event) => (
             <li key={event.id}>
@@ -1555,6 +1625,8 @@ export default function App() {
   );
   const [webMcpStatus, setWebMcpStatus] =
     useState<WebMcpStatus>("checking");
+  const [lastWebMcpCall, setLastWebMcpCall] =
+    useState<WebMcpCall | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
   const appContentRef = useRef<HTMLDivElement>(null);
   const auditTriggerRef = useRef<HTMLButtonElement>(null);
@@ -1588,6 +1660,10 @@ export default function App() {
     },
     [replaceState],
   );
+
+  const reportWebMcpCall = useCallback((call: WebMcpCall) => {
+    setLastWebMcpCall(call);
+  }, []);
 
   useEffect(() => {
     stateRef.current = state;
@@ -1648,6 +1724,7 @@ export default function App() {
       commitState,
       getTeachingJourney: () => journeyRef.current,
       commitTeachingJourney,
+      reportWebMcpCall,
     })
       .then((registeredController) => {
         if (cancelled) {
@@ -1666,7 +1743,7 @@ export default function App() {
       cancelled = true;
       controller?.abort();
     };
-  }, [commitState, commitTeachingJourney]);
+  }, [commitState, commitTeachingJourney, reportWebMcpCall]);
 
   const approvedRunId =
     state.activeRun?.status === "approved" ? state.activeRun.id : null;
@@ -1796,6 +1873,7 @@ export default function App() {
     const published = createPublishedJourney();
     journeyRef.current = published;
     setJourney(published);
+    setLastWebMcpCall(null);
   }, [replaceState]);
 
   const createDraft = useCallback(() => {
@@ -1814,6 +1892,7 @@ export default function App() {
       latestArrivalLimit?: "22:00" | "23:00" | "23:59";
       taxiHandling?: "allow" | "escalate";
       dietaryHandling?: "allow" | "escalate";
+      compensationHandling?: "allow" | "escalate";
     }) => {
       const source = journeyRef.current;
       const next = updateDraftBoundary(source, patch);
@@ -2022,6 +2101,8 @@ export default function App() {
         locale={locale}
         open={auditOpen}
         events={state.audit}
+        webMcpStatus={webMcpStatus}
+        lastWebMcpCall={lastWebMcpCall}
         onClose={closeAudit}
         backgroundRef={appContentRef}
         returnFocusRef={auditTriggerRef}

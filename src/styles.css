@@ -295,15 +295,14 @@ a:focus-visible {
   grid-template-columns: minmax(130px, 0.9fr) minmax(180px, 1.1fr);
   align-items: center;
   gap: 14px;
-  margin-top: 12px;
-  padding: 12px;
-  border-left: 3px solid var(--accent);
-  background: var(--selected);
+  margin-top: 0;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
 }
 
 .boundary-control.is-safe {
-  border-left-color: var(--success);
-  background: #f2faf5;
+  background: transparent;
 }
 
 .boundary-control label {
@@ -321,6 +320,18 @@ a:focus-visible {
   background: #ffffff;
   color: var(--text);
   font-size: 13px;
+}
+
+.boundary-control.is-risky label {
+  color: var(--accent-dark);
+}
+
+.boundary-control.is-risky select {
+  border-color: var(--accent);
+}
+
+.boundary-control.is-safe label {
+  color: var(--success);
 }
 
 .boundary-review .primary-action {
@@ -1099,6 +1110,74 @@ a:focus-visible {
   color: var(--muted);
   font-size: 13px;
   line-height: 21px;
+}
+
+.webmcp-evidence {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.webmcp-evidence summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 650;
+}
+
+.webmcp-evidence summary::marker {
+  color: var(--muted);
+}
+
+.webmcp-evidence summary span:last-child {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.webmcp-evidence[open] summary {
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.webmcp-evidence dl {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 0 16px;
+}
+
+.webmcp-evidence dl > div {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.webmcp-evidence dt,
+.webmcp-evidence dd {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.webmcp-evidence dt,
+.webmcp-evidence > p {
+  color: var(--muted);
+}
+
+.webmcp-evidence code {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+
+.webmcp-evidence > p {
+  margin: 0;
+  padding: 14px 0 16px;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .audit-events li {

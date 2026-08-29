@@ -27,14 +27,22 @@ export interface TeachbackService {
     nextState: TeachingJourney,
     announcement: string,
   ): boolean;
+  reportWebMcpCall?(call: WebMcpCall): void;
 }
+
+export interface WebMcpCall {
+  name: string;
+  code: string;
+}
+
+export const WEBMCP_TOOL_COUNT = 5;
 
 function response(result: ToolResult): string {
   return JSON.stringify(result);
 }
 
 export function createWebMcpTools(service: TeachbackService): ModelContextTool[] {
-  return [
+  const tools: ModelContextTool[] = [
     {
       name: "teachback_get_latest_demonstration",
       title: "Get latest demonstration",
@@ -94,6 +102,11 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
             enum: ["allow", "escalate"],
             description: "Whether new dietary requests are handled or escalated.",
           },
+          compensation_handling: {
+            type: "string",
+            enum: ["allow", "escalate"],
+            description: "Whether compensation requests are handled or escalated.",
+          },
         },
         required: ["latest_arrival_limit", "taxi_handling"],
         additionalProperties: false,
@@ -105,12 +118,25 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
           latest_arrival_limit?: unknown;
           taxi_handling?: unknown;
           dietary_handling?: unknown;
+          compensation_handling?: unknown;
         };
         if (
           !["22:00", "23:00", "23:59"].includes(
             String(candidate.latest_arrival_limit),
           ) ||
           !["allow", "escalate"].includes(String(candidate.taxi_handling))
+        ) {
+          return response({
+            ok: false,
+            code: "INVALID_DRAFT",
+            summary: "The proposed boundary is outside the bounded draft schema.",
+          });
+        }
+        if (
+          candidate.compensation_handling !== undefined &&
+          !["allow", "escalate"].includes(
+            String(candidate.compensation_handling),
+          )
         ) {
           return response({
             ok: false,
@@ -129,7 +155,10 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
         }
         const playbookId = demonstration.playbookId;
         const defaultDietaryHandling =
-          PLAYBOOK_DEFINITIONS[playbookId].boundary.dietaryHandling;
+          PLAYBOOK_DEFINITIONS[playbookId].agentDraftBoundary.dietaryHandling;
+        const defaultCompensationHandling =
+          PLAYBOOK_DEFINITIONS[playbookId].agentDraftBoundary
+            .compensationHandling;
         if (
           candidate.dietary_handling !== undefined &&
           !["allow", "escalate"].includes(String(candidate.dietary_handling))
@@ -148,7 +177,8 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
           taxiHandling: candidate.taxi_handling as "allow" | "escalate",
           dietaryHandling: (candidate.dietary_handling ??
             defaultDietaryHandling) as "allow" | "escalate",
-          compensationHandling: "escalate",
+          compensationHandling: (candidate.compensation_handling ??
+            defaultCompensationHandling) as "allow" | "escalate",
           approvalRequired: true,
         };
         const drafted = draftPlaybook(sourceState, boundary);
@@ -327,6 +357,25 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
       },
     },
   ];
+
+  return tools.map((tool) => {
+    const execute = tool.execute;
+    return {
+      ...tool,
+      execute: async (input, options) => {
+        const result = await execute(input, options);
+        try {
+          const parsed = JSON.parse(result) as { code?: unknown };
+          if (typeof parsed.code === "string") {
+            service.reportWebMcpCall?.({ name: tool.name, code: parsed.code });
+          }
+        } catch {
+          // Tool responses remain valid even if an embedding changes the payload.
+        }
+        return result;
+      },
+    };
+  });
 }
 
 export async function registerWebMcpTools(

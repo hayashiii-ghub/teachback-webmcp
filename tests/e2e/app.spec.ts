@@ -222,6 +222,16 @@ test("teaches a second playbook and unlocks Daniel", async ({ page }) => {
     "border-right-width",
     "0px",
   );
+  const compensationBoundary = page.getByLabel("Compensation requests");
+  await expect(compensationBoundary).toHaveValue("allow");
+  await expect(
+    page.getByRole("button", { name: "Publish reusable rule" }),
+  ).toBeDisabled();
+  await compensationBoundary.selectOption("escalate");
+  await expect(compensationBoundary).toHaveValue("escalate");
+  await expect(
+    page.getByRole("button", { name: "Publish reusable rule" }),
+  ).toBeEnabled();
   await page
     .getByRole("button", { name: "Publish reusable rule" })
     .click();
@@ -354,15 +364,23 @@ test("returns the checklist to pending after discarding a preview", async ({
   ).toBeVisible();
 });
 
-test("registers WebMCP tools without exposing technical readiness", async ({ page }) => {
+test("keeps WebMCP proof inside the audit drawer", async ({ page }) => {
   await page.addInitScript(() => {
-    const testWindow = window as Window & { registeredTeachbackTools?: string[] };
+    const testWindow = window as Window & {
+      registeredTeachbackTools?: Array<{
+        name: string;
+        execute(input: Record<string, unknown>): string | Promise<string>;
+      }>;
+    };
     testWindow.registeredTeachbackTools = [];
     Object.defineProperty(document, "modelContext", {
       configurable: true,
       value: {
-        registerTool: async (tool: { name: string }) => {
-          testWindow.registeredTeachbackTools?.push(tool.name);
+        registerTool: async (tool: {
+          name: string;
+          execute(input: Record<string, unknown>): string | Promise<string>;
+        }) => {
+          testWindow.registeredTeachbackTools?.push(tool);
         },
       },
     });
@@ -371,12 +389,14 @@ test("registers WebMCP tools without exposing technical readiness", async ({ pag
 
   await expect(page.getByText("Ready to apply", { exact: true })).toHaveCount(0);
   await expect.poll(async () => page.evaluate(() => {
-    const testWindow = window as Window & { registeredTeachbackTools?: string[] };
+    const testWindow = window as Window & { registeredTeachbackTools?: unknown[] };
     return testWindow.registeredTeachbackTools?.length ?? 0;
   })).toBe(5);
   expect(await page.evaluate(() => {
-    const testWindow = window as Window & { registeredTeachbackTools?: string[] };
-    return testWindow.registeredTeachbackTools;
+    const testWindow = window as Window & {
+      registeredTeachbackTools?: Array<{ name: string }>;
+    };
+    return testWindow.registeredTeachbackTools?.map((tool) => tool.name);
   })).toEqual([
     "teachback_get_latest_demonstration",
     "teachback_submit_playbook_draft",
@@ -385,10 +405,34 @@ test("registers WebMCP tools without exposing technical readiness", async ({ pag
     "teachback_commit_approved",
   ]);
 
+  await page.evaluate(async () => {
+    const testWindow = window as Window & {
+      registeredTeachbackTools?: Array<{
+        name: string;
+        execute(input: Record<string, unknown>): string | Promise<string>;
+      }>;
+    };
+    const tool = testWindow.registeredTeachbackTools?.find(
+      (candidate) => candidate.name === "teachback_get_current_case",
+    );
+    if (!tool) throw new Error("Current case tool was not registered");
+    await tool.execute({});
+  });
+  await page.getByRole("button", { name: "View audit trail" }).click();
+  const audit = page.getByRole("dialog", { name: "Audit trail" });
+  await expect(audit.getByText("WebMCP connected", { exact: true })).toBeVisible();
+  await expect(audit.getByText("5 site tools", { exact: true })).toBeVisible();
+  await audit.getByText("WebMCP connected", { exact: true }).click();
+  await expect(
+    audit.getByText("teachback_get_current_case", { exact: true }),
+  ).toBeVisible();
+  await expect(audit.getByText("CURRENT_CASE", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Close audit trail" }).click();
+
   await page.getByRole("button", { name: "日本語" }).click();
   await expect(page.getByText("反映できます", { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => {
-    const testWindow = window as Window & { registeredTeachbackTools?: string[] };
+    const testWindow = window as Window & { registeredTeachbackTools?: unknown[] };
     return testWindow.registeredTeachbackTools?.length;
   })).toBe(5);
 
@@ -704,6 +748,7 @@ test("starts the new scenario with Sofia ready to teach", async ({ page }) => {
   await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
   await page.getByRole("button", { name: "Teach from this case" }).click();
   await page.getByRole("button", { name: "Create draft" }).click();
+  await page.getByLabel("Compensation requests").selectOption("escalate");
   await page.getByRole("button", { name: "Publish reusable rule" }).click();
   await expect(
     page.getByRole("button", { name: /R-2050\s+Sofia Rossi\s+Handled/ }),

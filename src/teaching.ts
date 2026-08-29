@@ -99,7 +99,7 @@ export const NIGHT_ARRIVAL_PLAYBOOK: PlaybookDefinition = {
     latestArrivalLimit: "23:59",
     taxiHandling: "allow",
     dietaryHandling: "allow",
-    compensationHandling: "escalate",
+    compensationHandling: "allow",
     approvalRequired: true,
   },
   actions: structuredClone(nightArrivalDemonstration.actions),
@@ -291,7 +291,10 @@ export function updateDraftBoundary(
   patch: Partial<
     Pick<
       PlaybookBoundary,
-      "latestArrivalLimit" | "taxiHandling" | "dietaryHandling"
+      | "latestArrivalLimit"
+      | "taxiHandling"
+      | "dietaryHandling"
+      | "compensationHandling"
     >
   >,
   now = new Date(),
@@ -325,6 +328,15 @@ export function updateDraftBoundary(
       activity(
         "Human",
         `Changed dietary handling from ${previous.dietaryHandling} to ${next.dietaryHandling}.`,
+        now,
+      ),
+    );
+  }
+  if (next.compensationHandling !== previous.compensationHandling) {
+    changes.push(
+      activity(
+        "Human",
+        `Changed compensation handling from ${previous.compensationHandling} to ${next.compensationHandling}.`,
         now,
       ),
     );
@@ -449,9 +461,13 @@ function isBoundary(value: unknown): value is PlaybookBoundary {
     ) &&
     ["allow", "escalate"].includes(String(boundary.taxiHandling)) &&
     ["allow", "escalate"].includes(String(boundary.dietaryHandling)) &&
-    boundary.compensationHandling === "escalate" &&
+    ["allow", "escalate"].includes(String(boundary.compensationHandling)) &&
     boundary.approvalRequired === true
   );
+}
+
+function isPublishedBoundary(value: unknown): value is PlaybookBoundary {
+  return isBoundary(value) && value.compensationHandling === "escalate";
 }
 
 function isAction(value: unknown): value is PlaybookAction {
@@ -495,7 +511,7 @@ function isPlaybook(value: unknown): value is PublishedPlaybook {
   return (
     typeof playbook.id === "string" &&
     typeof playbook.sourceDemonstrationId === "string" &&
-    isBoundary(playbook.boundary) &&
+    isPublishedBoundary(playbook.boundary) &&
     Array.isArray(playbook.actions) &&
     playbook.actions.every(isAction)
   );

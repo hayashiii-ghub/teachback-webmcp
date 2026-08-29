@@ -86,13 +86,24 @@ describe("Teachback teaching journey", () => {
 
     const drafted = draftPlaybook(
       teachingNightArrival,
-      NIGHT_ARRIVAL_PLAYBOOK.boundary,
+      NIGHT_ARRIVAL_PLAYBOOK.agentDraftBoundary,
       new Date("2026-08-27T09:06:00.000Z"),
     );
-    expect(draftIsPublishable(drafted.state)).toBe(true);
+    expect(drafted.state.draft?.boundary.compensationHandling).toBe("allow");
+    expect(draftIsPublishable(drafted.state)).toBe(false);
+    expect(publishPlaybook(drafted.state).result.code).toBe(
+      "BOUNDARY_REVIEW_REQUIRED",
+    );
+
+    const bounded = updateDraftBoundary(
+      drafted.state,
+      { compensationHandling: "escalate" },
+      new Date("2026-08-27T09:06:30.000Z"),
+    );
+    expect(draftIsPublishable(bounded)).toBe(true);
 
     const published = publishPlaybook(
-      drafted.state,
+      bounded,
       new Date("2026-08-27T09:07:00.000Z"),
     );
     expect(published.result.code).toBe("PLAYBOOK_PUBLISHED");
