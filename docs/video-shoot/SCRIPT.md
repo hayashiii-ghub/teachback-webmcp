@@ -1,7 +1,9 @@
 # SCRIPT — Teachback, final 94-second video
 
 **Status:** Final MP4 exported, checked, and accepted by the creator on
-2026-08-30. [Public on YouTube](https://youtu.be/E8-ijshSw_g); not yet submitted to the contest. The times below are measured placements
+2026-08-30. [Public on YouTube](https://youtu.be/E8-ijshSw_g) and
+[submitted to The WebMCP Challenge](../submission/SUBMISSION-STATUS.md).
+The times below are measured placements
 in the accepted 94-second edit, not the original filming budget.
 **Voice:** HeyGen, Chill Brian (`d2f4f24783d04e22ab49ee8fdc3715e0`). The user
 approved the short audition before full generation. The older Kokoro `am_michael`

@@ -7,7 +7,9 @@ screenshots of today's live site.
 
 Use the order below for a gallery. If the form has fewer slots, prioritize
 1, 3, 4, and 5: the human boundary, refusal, approval, and application.
-The actual gallery slot/file limits still need checking in the submission form.
+The signed-in submission form permits up to 15 JPG/PNG/GIF images, each at most
+5 MB, and recommends (but does not require) a 3:2 ratio. All five images and
+captions were saved and their narrative order rechecked after reload on 2026-08-30.
 
 ## 1. Human-set boundary — 00:33.400
 
@@ -57,5 +59,6 @@ SHA-256: `49d1e05cb3e77f7a9413bbf83b01e0d377b6820565d41e0263ab19e5e1425d26`.
 
 The [manifest](screenshots/manifest.json) records the source location, frame
 indices, timestamps, and individual PNG hashes. These gallery images are
-separate from the existing 3:2 project thumbnail at
-[`public/devpost-thumbnail.png`](../../public/devpost-thumbnail.png).
+separate from the new 3:2 [Devpost cover](devpost-cover-final.png). The older
+[`public/devpost-thumbnail.png`](../../public/devpost-thumbnail.png) remains
+unchanged in the repository; it is no longer the cover used by the submitted entry.

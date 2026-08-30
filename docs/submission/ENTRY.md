@@ -1,7 +1,9 @@
 # Teachback — English submission copy
 
-Local copy prepared against the accepted 94-second video. These fields have not
-yet been saved to the Devpost draft. Paste the relevant section into each field.
+Copy prepared against the accepted 94-second video. The name, tagline, story,
+video link, screenshot captions, and additional information were saved to the
+existing Devpost entry on 2026-08-30. The creator then authorized final submission,
+and Devpost confirmed receipt; see [submission status](SUBMISSION-STATUS.md).
 
 ## Project name
 
