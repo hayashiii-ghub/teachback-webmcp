@@ -352,6 +352,43 @@ test("teaches a second playbook and unlocks Daniel", async ({ page }) => {
   await expect(page.getByText("Arranged", { exact: true })).toBeVisible();
 });
 
+test("keeps published source descriptions correct when revisiting Sofia in both languages", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
+  await page.getByRole("button", { name: "Teach from this case" }).click();
+  await page.getByRole("button", { name: "Create draft" }).click();
+  await page.getByLabel("Compensation requests").selectOption("escalate");
+  await page.getByRole("button", { name: "Publish reusable rule" }).click();
+  await expect(page.getByRole("heading", { name: "Daniel Kim" })).toBeVisible();
+
+  await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
+  await expect(page.getByRole("heading", { name: "Sofia Rossi" })).toBeVisible();
+  const sourceFlow = page.locator(".playbook-flow");
+  const recordedDescription = page.locator(".recorded-workspace p");
+  const sidebarDescription = page.locator(".source-case-note p");
+
+  await expect(sourceFlow.getByText("R-2050", { exact: true })).toBeVisible();
+  await expect(sourceFlow.getByText("Night Arrival Coordination")).toBeVisible();
+  await expect(recordedDescription).toHaveText(
+    "The recorded actions from this reservation became a reusable rule. Select another case to reuse it within the approved boundary.",
+  );
+  await expect(sidebarDescription).toHaveText(
+    "A reusable rule was created from the response recorded on this reservation.",
+  );
+
+  await page.getByRole("button", { name: "日本語" }).click();
+  await expect(page.getByRole("heading", { name: "Sofia Rossi" })).toBeVisible();
+  await expect(sourceFlow.getByText("R-2050", { exact: true })).toBeVisible();
+  await expect(sourceFlow.getByText("夜間到着対応", { exact: true })).toBeVisible();
+  await expect(recordedDescription).toHaveText(
+    "この予約で記録した対応から、再利用できるルールを作成しました。別の予約を選ぶと、人が決めた範囲内で再利用できます。",
+  );
+  await expect(sidebarDescription).toHaveText(
+    "この予約で記録した対応から、再利用できるルールを作成しました。",
+  );
+});
+
 test("rejects a saved state that mixes a preview with a refusal", async ({
   page,
 }) => {

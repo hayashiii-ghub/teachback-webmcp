@@ -121,12 +121,12 @@ export const UI_COPY = {
     readyBody: "The reservation does not change until a person approves it.",
     recordedHeading: "The playbook was taught here",
     recordedBody:
-      "The four actions from this handled reservation became Late Arrival Care. Select another case to reuse it within the approved boundary.",
+      "The recorded actions from this reservation became a reusable rule. Select another case to reuse it within the approved boundary.",
     unlearnedRecordedHeading: "Turn this response into a rule",
     unlearnedRecordedBody:
       "Create a reusable rule from the actions recorded on this handled reservation.",
     sourceCaseBody:
-      "Late Arrival Care was created from the response recorded on this reservation.",
+      "A reusable rule was created from the response recorded on this reservation.",
     unlearnedSourceCaseBody:
       "The recorded response can be turned into a reusable rule.",
     teachThisCase: "Teach from this case",
@@ -318,12 +318,12 @@ export const UI_COPY = {
     readyBody: "担当者が承認するまで、予約は変更されません。",
     recordedHeading: "この対応から教えました",
     recordedBody:
-      "この予約で行った4つの対応が「レイトアライバル対応」になりました。別の予約を選ぶと、人が決めた範囲内で再利用できます。",
+      "この予約で記録した対応から、再利用できるルールを作成しました。別の予約を選ぶと、人が決めた範囲内で再利用できます。",
     unlearnedRecordedHeading: "この対応をルールにできます",
     unlearnedRecordedBody:
       "記録した対応を、条件付きで再利用できるルールにします。",
     sourceCaseBody:
-      "この予約で記録した対応から、レイトアライバル対応を作成しました。",
+      "この予約で記録した対応から、再利用できるルールを作成しました。",
     unlearnedSourceCaseBody:
       "この予約で記録した対応を、再利用できるルールにできます。",
     teachThisCase: "この対応から教える",
