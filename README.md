@@ -1,15 +1,26 @@
 # Teachback
 
-Teachback turns demonstrated frontline work into reusable rules whose boundaries are approved by a person and enforced by the website through WebMCP.
+Teachback turns recorded frontline work into reusable workflows with human-set boundaries and approval for each execution. WebMCP lets an agent propose and request changes; the website checks whether those changes may be applied.
 
 **Live demo:** [teachback-webmcp.haygsiiii.chatgpt.site](https://teachback-webmcp.haygsiiii.chatgpt.site/)
 
-This challenge prototype demonstrates two complementary flows:
+This challenge prototype includes two complementary flows:
 
-- **Reuse a published rule:** Aiko's handled reservation provides the published Late Arrival Care rule. The agent prepares a bounded preview for Emma, a person approves the exact proposal, and the website permits that approved digest to be committed once.
-- **Teach a new rule:** Sofia's handled reservation provides a second demonstration. The agent structures it into a draft, a person reviews and publishes the boundary, and the resulting Night Arrival Coordination rule becomes available for Daniel.
+- **Teach and reuse — the video story:** A staff response to Sofia's reservation supplies the recorded actions. An agent submits a draft through WebMCP. A person changes compensation handling to escalation and publishes Night Arrival Coordination. The agent then prepares changes for Daniel. An unapproved attempt returns `RUN_NOT_APPROVED`; after a person approves, the same run and digest return `RUN_COMMITTED`.
+- **Try an existing rule:** Aiko's handled reservation supplies the published Late Arrival Care rule. Emma is the initial selected case and can use that rule without first teaching a new one.
 
-An agent can read demonstrations, submit drafts, inspect cases, and prepare or commit approved changes. It cannot publish a rule or approve its own proposal. Unsafe cases are refused with explicit reasons.
+The five registered tools expose reading, drafting, preview preparation, and approved application. Rule publication and proposal approval remain page actions, not WebMCP tools. Cases outside a published rule's conditions are refused with explicit reasons.
+
+## Demo video
+
+Watch the **[94-second English demo on YouTube](https://youtu.be/E8-ijshSw_g)**. It follows Sofia → human-set boundary → Daniel → refusal → approval → application. The creator-approved video is public; the contest submission is still pending.
+
+- [Final cut and proof timestamps](docs/demo-script.md)
+- [English narration with final timing](docs/video-shoot/SCRIPT.md)
+- [Screenshots extracted from the final MP4](docs/submission/SCREENSHOTS.md)
+- [Submission materials and delivery status](docs/submission/README.md)
+
+The supplied reservations and recorded actions are synthetic demo data. This video does not demonstrate a general-purpose recorder that learns arbitrary work from a screen recording.
 
 ## Run locally
 
@@ -47,8 +58,11 @@ The prepare tool operates only on the case visibly selected in the page. The com
 5. Approve the exact preview in Teachback, then ask the agent to apply it.
 6. Reset the demo, select Sofia, and choose **Teach from this case**.
 7. Ask the agent to read the latest demonstration and submit a playbook draft.
-8. Review and publish the boundary in Teachback. Daniel is then selected as the next reusable case.
-9. Ask the agent to prepare Daniel, approve the exact preview, and ask the agent to apply it.
+8. Review the boundary in Teachback. For the video's draft, change compensation handling from automatic to escalation, then publish. Daniel is selected as the next reusable case.
+9. Ask the agent to prepare Daniel and retain the returned run ID and digest. Before approving, ask it to apply that proposal: expect `RUN_NOT_APPROVED`.
+10. Approve the exact preview in Teachback. Within five minutes, ask the agent to retry with the same run ID and digest: expect `RUN_COMMITTED`. Do not prepare a replacement proposal between these calls.
+
+Open **View audit trail** and expand **WebMCP connected** to inspect the registered tool count and the actual latest tool name/result. Inspect the refusal before making another tool call, which replaces the latest-call display. The separate audit entries record workflow events such as publication, approval, and application; they are not a permanent log of every failed tool request.
 
 ## Validation
 
@@ -60,10 +74,6 @@ bun run test:e2e
 ## Security boundary
 
 This client-only challenge prototype demonstrates deterministic policy enforcement, approval binding, optimistic version checks, expiry, and replay prevention. It is not a production authentication or authorization system. A production deployment would move durable authorization and sensitive hotel data behind an authenticated server boundary.
-
-## Demo video
-
-The final 60.4-second challenge-demo structure and English narration are in [`docs/demo-script.md`](docs/demo-script.md).
 
 ## Brand assets
 
@@ -83,7 +93,7 @@ guest-facing copy remains visible in its source language for approval.
 
 The UI keeps business status separate from system capability. Aiko and Sofia are handled cases; Emma and Daniel begin as unhandled cases. Whether a case has a reusable rule or can teach a new one appears only in the selected case's next action.
 
-Conditions remain visibly unevaluated until a preview is prepared. After approval, the page shows the absolute approval expiry in JST. WebMCP availability is handled without exposing raw tool names in the operator UI.
+Conditions remain visibly unevaluated until a preview is prepared. After approval, the page shows the absolute approval expiry in JST. Raw tool names and result codes are kept in the expandable WebMCP evidence inside the audit drawer, rather than the main operator workflow.
 
 ## License
 

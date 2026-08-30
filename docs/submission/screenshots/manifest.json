@@ -1,0 +1,72 @@
+{
+  "source": {
+    "pathFromRepositoryRoot": "videos/teachback-submission/renders/final-20260830-WRwyz2/Teachback-WebMCP-94s-English.mp4",
+    "sha256": "49d1e05cb3e77f7a9413bbf83b01e0d377b6820565d41e0263ab19e5e1425d26",
+    "durationSeconds": 94,
+    "framesPerSecond": 30,
+    "width": 1920,
+    "height": 1080
+  },
+  "extraction": {
+    "method": "FFmpeg full-frame decode to PNG; no filters, crop, resize, annotations, or image compositing",
+    "commandTemplate": "ffmpeg -hide_banner -loglevel error -n -ss TIME -i SOURCE -frames:v 1 -update 1 OUTPUT",
+    "visualInspection": "All five images inspected at full-frame resolution; key proof text is readable and captions stay below the picture area.",
+    "notes": [
+      "Existing camera crops and English captions are baked into the accepted source video and retained unchanged.",
+      "These are detail evidence frames, not uncropped overview screenshots of the live application.",
+      "Peripheral headings or panels may be cut by the accepted video framing; no new cropping was performed."
+    ]
+  },
+  "screenshots": [
+    {
+      "file": "01-human-boundary-confirmed-33p4s.png",
+      "timeSeconds": 33.4,
+      "frameIndexZeroBased": 1002,
+      "sha256": "b16f89c458ef79666b69fed292b78f7db10b489c08e3e70ec511c43fc00ddc4c",
+      "title": "A person confirms the compensation boundary",
+      "visibleEvidence": ["Compensation requests", "Escalate to a person · Confirmed by person", "Publish reusable rule"],
+      "caption": "Compensation requests must go to a person.",
+      "selectionReason": "Stable confirmed state after the actual human change, before the camera returns to the full application; boundary control and enabled publish button are both readable."
+    },
+    {
+      "file": "02-daniel-proposed-changes-53p2s.png",
+      "timeSeconds": 53.2,
+      "frameIndexZeroBased": 1596,
+      "sha256": "4b76eaf25c33bd23099a1e6065bf9ce92fe89e3d403d5200fb79c29c56e7870a",
+      "title": "The taught workflow prepares Daniel's changes",
+      "visibleEvidence": ["R-2052", "Taught from R-2050 · Night Arrival Coordination", "Proposed changes", "Arrival, meal, dietary request, taxi, guest message, handoff"],
+      "caption": "but applies nothing.",
+      "selectionReason": "Stable preview hold shows the source-to-target relationship and all six proposed changes; the complete short caption emphasizes that preparation does not apply changes."
+    },
+    {
+      "file": "03-webmcp-refuses-unapproved-60p6s.png",
+      "timeSeconds": 60.6,
+      "frameIndexZeroBased": 1818,
+      "sha256": "c7f59dbab95fc7e91f298d71b13bd8c3e46c50048465739221d19890372e3c04",
+      "title": "The website refuses an unapproved tool call",
+      "visibleEvidence": ["WebMCP connected", "5 site tools", "teachback_commit_approved", "RUN_NOT_APPROVED"],
+      "caption": "Human approval is required.",
+      "selectionReason": "Settled close-up clearly shows the actual tool name and refusal result, with a concise explanatory caption."
+    },
+    {
+      "file": "04-exact-proposal-approved-70p8s.png",
+      "timeSeconds": 70.8,
+      "frameIndexZeroBased": 2124,
+      "sha256": "77ef6011f0894f2354c1a5b250a738dd2a5aae3f7093abfcf0bcb8c9864ef7cc",
+      "title": "Approval is scoped to this exact proposal",
+      "visibleEvidence": ["R-2052 Daniel Kim", "Approved for this proposal", "7/7 conditions met", "Valid until 16:34 JST", "May be applied once."],
+      "caption": "That approval is valid once,",
+      "selectionReason": "Stable approved-but-not-applied state keeps the exact proposal, validity time, and one-use scope readable. The retained caption is a video sentence fragment, but does not cover evidence."
+    },
+    {
+      "file": "05-webmcp-committed-83p5s.png",
+      "timeSeconds": 83.5,
+      "frameIndexZeroBased": 2505,
+      "sha256": "824da1e486ef2d95df65795642796b42015423bd4e6b4495d645db75d8aac94a",
+      "title": "The same tool successfully applies the approved changes",
+      "visibleEvidence": ["teachback_commit_approved", "RUN_COMMITTED", "Agent · Applied change", "Applied the approved changes to R-2052."],
+      "caption": null,
+      "selectionReason": "Stable post-commit audit close-up shows the actual successful tool result and target reservation, without captions obscuring the audit."
+    }
+  ]
+}
