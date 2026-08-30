@@ -30,7 +30,7 @@ describe("Teachback UI localization", () => {
     expect(copy.webMcpReady).toBe("反映できます");
     expect(copy.approvalValidUntil).toBe("有効期限");
     expect(copy.approvalExactOnly).toBe("この変更案を1回だけ反映できます。");
-    expect(copy.teachingHeadline).toContain("再利用ルール");
+    expect(copy.teachingPanelHeading).toBe("対応ルールを作る");
     expect(copy.demonstrationActionLabels).toHaveLength(4);
   });
 

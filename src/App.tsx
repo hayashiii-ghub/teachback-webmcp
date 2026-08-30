@@ -1219,36 +1219,21 @@ function WebMcpAvailability({
   status: WebMcpStatus;
 }) {
   const copy = copyFor(locale);
-  const details = {
-    checking: {
-      label: copy.webMcpChecking,
-      description: copy.webMcpCheckingDetail,
-    },
-    ready: {
-      label: copy.webMcpReady,
-      description: copy.webMcpReadyDetail,
-    },
-    unavailable: {
-      label: copy.webMcpUnavailable,
-      description: copy.webMcpUnavailableDetail,
-    },
-    error: {
-      label: copy.webMcpError,
-      description: copy.webMcpErrorDetail,
-    },
+  const label = {
+    checking: copy.webMcpChecking,
+    ready: copy.webMcpReady,
+    unavailable: copy.webMcpUnavailable,
+    error: copy.webMcpError,
   }[status];
 
   return (
     <div
-      className={`webmcp-availability is-${status}`}
+      className="webmcp-availability"
       role="status"
       aria-atomic="true"
     >
-      <span className="webmcp-status-dot" aria-hidden="true" />
       <div>
-        <span className="webmcp-label">{copy.webMcpTools}</span>
-        <strong>{details.label}</strong>
-        <p>{details.description}</p>
+        <strong>{label}</strong>
       </div>
     </div>
   );

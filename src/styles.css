@@ -74,12 +74,10 @@ a:focus-visible {
 }
 
 .app-header {
-  min-height: 88px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 32px;
-  padding: 0 34px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -93,11 +91,7 @@ a:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  font-family: "Iowan Old Style", Baskerville, Georgia, serif;
-  font-size: 40px;
-  line-height: 44px;
   font-weight: 700;
-  letter-spacing: -0.04em;
   white-space: nowrap;
 }
 
@@ -114,7 +108,6 @@ a:focus-visible {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 22px;
   flex: 0 0 auto;
 }
 
@@ -172,20 +165,14 @@ a:focus-visible {
 }
 
 .demo-intro {
-  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 28px;
-  padding: 22px 34px;
   border-bottom: 1px solid var(--border);
-  background: #ffffff;
 }
 
 .demo-intro strong {
   max-width: 920px;
-  font-size: clamp(18px, 1.7vw, 26px);
-  line-height: 1.45;
-  letter-spacing: -0.02em;
 }
 
 .journey-steps {
@@ -296,12 +283,6 @@ a:focus-visible {
   line-height: 19px;
 }
 
-.fixed-rules .check-icon {
-  width: 18px;
-  height: 18px;
-  flex-basis: 18px;
-}
-
 .boundary-control {
   display: grid;
   grid-template-columns: minmax(130px, 0.9fr) minmax(180px, 1.1fr);
@@ -367,20 +348,9 @@ a:focus-visible {
   font-weight: 700;
 }
 
-.app-grid {
-  display: grid;
-  grid-template-columns: minmax(280px, 24.6%) minmax(560px, 48.5%) minmax(320px, 26.9%);
-  min-height: calc(100vh - 88px);
-}
-
 .case-queue,
 .review-panel {
   background: var(--rail);
-}
-
-.case-queue {
-  padding: 40px 0;
-  border-right: 1px solid var(--border);
 }
 
 .case-queue h2,
@@ -393,35 +363,18 @@ a:focus-visible {
 }
 
 .case-list {
-  margin: 0;
-  padding: 0;
   list-style: none;
 }
 
 .case-item {
   position: relative;
   width: 100%;
-  min-height: 106px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: center;
   gap: 6px;
-  padding: 18px 54px 18px 34px;
-  border: 0;
-  border-bottom: 1px solid transparent;
-  background: transparent;
   text-align: left;
   cursor: pointer;
-}
-
-.case-item:hover {
-  background: #f5f3f1;
-}
-
-.case-item.is-selected {
-  border-bottom-color: var(--border);
-  background: var(--selected);
 }
 
 .case-item.is-selected::before {
@@ -433,22 +386,11 @@ a:focus-visible {
 }
 
 .case-primary {
-  display: flex;
   flex-wrap: wrap;
-  gap: 8px 14px;
-  font-size: 17px;
-  line-height: 24px;
-  font-weight: 600;
 }
 
 .case-secondary {
   color: var(--muted);
-  font-size: 15px;
-  line-height: 22px;
-}
-
-.is-selected .case-secondary {
-  color: var(--accent-dark);
 }
 
 .case-caret {
@@ -460,17 +402,8 @@ a:focus-visible {
   transform: translateY(-50%);
 }
 
-.reservation-workspace {
-  min-width: 0;
-  padding: 50px 44px 64px;
-  background: var(--bg);
-}
-
 .reservation-workspace h1 {
   margin: 0 0 28px;
-  font-size: clamp(38px, 3.15vw, 48px);
-  line-height: 1;
-  letter-spacing: -0.04em;
 }
 
 .reservation-meta {
@@ -478,10 +411,7 @@ a:focus-visible {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px 12px;
-  padding-bottom: 28px;
-  border-bottom: 1px solid var(--border);
   color: var(--muted);
-  font-size: 15px;
   line-height: 22px;
 }
 
@@ -497,23 +427,9 @@ a:focus-visible {
   background: var(--border);
 }
 
-.playbook-flow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  margin-top: 24px;
-  padding: 16px 18px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #faf9f7;
-}
-
 .reservation-facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 28px;
-  padding: 36px 0 48px;
 }
 
 .reservation-facts div {
@@ -524,13 +440,7 @@ a:focus-visible {
 
 .reservation-facts span {
   color: var(--muted);
-  font-size: 15px;
   line-height: 22px;
-}
-
-.reservation-facts strong {
-  font-size: 21px;
-  line-height: 28px;
 }
 
 .changes-section h2,
@@ -615,17 +525,13 @@ a:focus-visible {
 }
 
 .empty-workspace {
-  max-width: 560px;
   padding-top: 14px;
 }
 
 .empty-workspace p,
 .recorded-workspace p {
-  max-width: 520px;
   margin: 0 0 24px;
   color: var(--muted);
-  font-size: 17px;
-  line-height: 28px;
 }
 
 .recorded-workspace {
@@ -653,19 +559,11 @@ a:focus-visible {
   color: var(--muted);
 }
 
-.review-panel {
-  padding: 32px 0 48px;
-  border-left: 1px solid var(--border);
-}
-
 .review-heading-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin: 0 34px 14px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
 }
 
 .review-heading-row h2 {
@@ -693,65 +591,17 @@ a:focus-visible {
 }
 
 .webmcp-availability {
-  display: grid;
   grid-template-columns: 10px minmax(0, 1fr);
   gap: 12px;
-  margin: 0 34px 14px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--bg);
-}
-
-.webmcp-status-dot {
-  width: 9px;
-  height: 9px;
-  margin-top: 5px;
-  border-radius: 999px;
-  background: #8b8783;
-}
-
-.webmcp-availability.is-ready .webmcp-status-dot {
-  background: var(--success);
-}
-
-.webmcp-availability.is-unavailable .webmcp-status-dot {
-  background: #b56b19;
-}
-
-.webmcp-availability.is-error .webmcp-status-dot {
-  background: var(--accent);
-}
-
-.webmcp-label {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 16px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
 
 .webmcp-availability strong {
   display: block;
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.webmcp-availability p {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 16px;
 }
 
 .source-case-note {
   margin: 0 34px;
   padding: 20px 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
 }
 
 .source-case-note strong {
@@ -792,13 +642,10 @@ a:focus-visible {
 }
 
 .eligibility-list li {
-  min-height: 44px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
   border-bottom: 0;
-  font-size: 14px;
   line-height: 21px;
 }
 
@@ -830,13 +677,6 @@ a:focus-visible {
 
 .eligibility-list li.is-failed .criterion-status {
   color: var(--accent-dark);
-}
-
-.check-icon {
-  flex: 0 0 22px;
-  width: 22px;
-  height: 22px;
-  color: var(--success);
 }
 
 .criterion-fail-icon {
@@ -905,7 +745,6 @@ a:focus-visible {
 .review-actions {
   display: grid;
   gap: 12px;
-  margin: 0 34px;
 }
 
 .approval-status-card {
@@ -1015,13 +854,9 @@ a:focus-visible {
 
 .primary-action,
 .secondary-action {
-  min-height: 56px;
-  border-radius: 7px;
   padding: 14px 20px;
   cursor: pointer;
-  font-size: 17px;
   line-height: 24px;
-  font-weight: 600;
 }
 
 .primary-action {
@@ -1377,11 +1212,8 @@ a:focus-visible {
 
 @media (max-width: 767px) {
   .app-header {
-    min-height: 0;
     flex-direction: column;
     align-items: flex-start;
-    gap: 14px;
-    padding: 18px 20px;
   }
 
   .brand-lockup {
@@ -1389,15 +1221,9 @@ a:focus-visible {
     flex: 0 0 auto;
   }
 
-  .brand {
-    font-size: 34px;
-    line-height: 38px;
-  }
-
   .header-actions {
     width: 100%;
     justify-content: space-between;
-    gap: 10px;
     margin-left: 0;
     flex-wrap: wrap;
   }
@@ -1409,11 +1235,6 @@ a:focus-visible {
     padding: 20px;
   }
 
-  .demo-intro strong {
-    font-size: 19px;
-    line-height: 29px;
-  }
-
   .journey-steps {
     grid-template-columns: minmax(0, 1fr);
     margin-top: 30px;
@@ -1423,13 +1244,7 @@ a:focus-visible {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .app-grid {
-    display: flex;
-    flex-direction: column;
-  }
-
   .case-queue {
-    padding: 22px 0 0;
     border-right: 0;
     border-bottom: 1px solid var(--border);
     overflow: hidden;
@@ -1441,21 +1256,11 @@ a:focus-visible {
   }
 
   .case-list {
-    display: flex;
-    gap: 1px;
-    padding: 0 20px 18px;
-    overflow-x: auto;
     overscroll-behavior-inline: contain;
   }
 
   .case-list li {
     flex: 0 0 230px;
-  }
-
-  .case-item {
-    min-height: 86px;
-    padding: 14px 42px 14px 18px;
-    border: 1px solid var(--border);
   }
 
   .case-item.is-selected::before {
@@ -1466,18 +1271,8 @@ a:focus-visible {
     right: 16px;
   }
 
-  .reservation-workspace {
-    padding: 36px 20px 48px;
-  }
-
-  .reservation-workspace h1 {
-    font-size: 38px;
-  }
-
   .review-panel {
-    order: 3;
     padding: 34px 0 48px;
-    border-top: 1px solid var(--border);
   }
 
   .review-heading-row,
@@ -2045,12 +1840,6 @@ a:focus-visible {
   border: 0;
   border-radius: 0;
   background: transparent;
-}
-
-.webmcp-status-dot,
-.webmcp-label,
-.webmcp-availability p {
-  display: none;
 }
 
 .webmcp-availability strong {

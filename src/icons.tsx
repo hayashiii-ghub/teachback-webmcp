@@ -2,7 +2,6 @@ import { ArrowRight } from "@phosphor-icons/react/ArrowRight";
 import { CaretLeft } from "@phosphor-icons/react/CaretLeft";
 import { CaretRight } from "@phosphor-icons/react/CaretRight";
 import { Check } from "@phosphor-icons/react/Check";
-import { Circle } from "@phosphor-icons/react/Circle";
 import { X } from "@phosphor-icons/react/X";
 import type { IconProps as PhosphorIconProps } from "@phosphor-icons/react";
 
@@ -29,10 +28,6 @@ export function CaretLeftIcon({ className }: IconProps) {
 
 export function CheckIcon({ className }: IconProps) {
   return <Check {...sharedProps} className={className} weight="bold" />;
-}
-
-export function CircleIcon({ className }: IconProps) {
-  return <Circle {...sharedProps} className={className} weight="regular" />;
 }
 
 export function CloseIcon({ className }: IconProps) {
