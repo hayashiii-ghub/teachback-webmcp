@@ -13,6 +13,95 @@ test("opens directly on the reusable reservation demo", async ({ page }) => {
     .toHaveCount(0);
 });
 
+test("preserves independent approvals through navigation, search, and reload", async ({ page }, testInfo) => {
+  await page.getByRole("button", { name: "Check conditions and prepare preview", exact: true }).click();
+  await page.getByRole("button", { name: "Approve preview", exact: true }).click();
+  const originalExpiry = await page.locator(".approval-expiry time").getAttribute("datetime");
+  const originalRun = await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!).runsByReservationId["R-2048"]);
+  await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
+  await expect(page.getByText("Approved for this proposal", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /R-2048\s+Emma Wilson/ })).toContainText("Awaiting review");
+  const search = page.getByRole("searchbox", { name: "Search cases" });
+  await search.fill("Maya");
+  await expect(page.getByRole("heading", { name: "Maya Patel" })).toBeVisible();
+  await page.getByRole("button", { name: "Check conditions and prepare preview", exact: true }).click();
+  await page.getByRole("button", { name: "Approve preview", exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Maya Patel" })).toBeVisible();
+  await expect(page.getByText("Approved for this proposal", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /R-2048\s+Emma Wilson/ }).click();
+  await expect(page.getByText("Approved for this proposal", { exact: true })).toBeVisible();
+  await expect(page.locator(".approval-expiry time")).toHaveAttribute("datetime", originalExpiry!);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!));
+  expect(saved.runsByReservationId["R-2048"]).toEqual(originalRun);
+  expect(saved.runsByReservationId["R-2054"].status).toBe("approved");
+  await page.screenshot({ path: testInfo.outputPath("restored-approval.png"), fullPage: true });
+});
+
+test("preserves an unapproved preview and its discard across case switches", async ({ page }) => {
+  await page.getByRole("button", { name: "Check conditions and prepare preview", exact: true }).click();
+  await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
+  await page.reload();
+  await page.getByRole("button", { name: /R-2048\s+Emma Wilson/ }).click();
+  await expect(page.getByRole("button", { name: "Approve preview", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
+  await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
+  await page.getByRole("button", { name: /R-2048\s+Emma Wilson/ }).click();
+  await expect(page.getByRole("button", { name: "Approve preview", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Check conditions and prepare preview", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Reset demo" }).click();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!));
+  expect(saved.runsByReservationId).toEqual({});
+  expect(saved.rejectionsByReservationId).toEqual({});
+});
+
+test("expires approval while a different case is visible", async ({ page }) => {
+  await page.clock.install();
+  await page.getByRole("button", { name: "Check conditions and prepare preview", exact: true }).click();
+  await page.getByRole("button", { name: "Approve preview", exact: true }).click();
+  await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
+  await page.clock.fastForward(5 * 60 * 1000 + 100);
+  await page.getByRole("button", { name: /R-2048\s+Emma Wilson/ }).click();
+  await expect(page.getByText("Approval expired", { exact: true })).toBeVisible();
+  await expect(page.getByText("Approved for this proposal", { exact: true })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByText("Approval expired", { exact: true })).toBeVisible();
+});
+
+test("migrates the old single approval without resetting or renewing it", async ({ page }) => {
+  await page.getByRole("button", { name: "Check conditions and prepare preview", exact: true }).click();
+  await page.getByRole("button", { name: "Approve preview", exact: true }).click();
+  const legacyRun = await page.evaluate(() => {
+    const key = "teachback-demo-v1";
+    const { runsByReservationId, rejectionsByReservationId, ...saved } = JSON.parse(localStorage.getItem(key)!);
+    const activeRun = runsByReservationId[saved.selectedReservationId];
+    localStorage.setItem(key, JSON.stringify({ ...saved, storageVersion: 2, activeRun, rejection: null }));
+    return activeRun;
+  });
+  await page.reload();
+  await expect(page.getByText("Approved for this proposal", { exact: true })).toBeVisible();
+  const migrated = await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!));
+  expect(migrated.storageVersion).toBe(3);
+  expect(migrated.runsByReservationId["R-2048"]).toEqual(legacyRun);
+  expect(migrated).not.toHaveProperty("activeRun");
+  await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
+  await page.getByRole("button", { name: /R-2048\s+Emma Wilson/ }).click();
+  await expect(page.getByText("Approved for this proposal", { exact: true })).toBeVisible();
+});
+
+test("rejects saved previews indexed under another reservation", async ({ page }) => {
+  await page.getByRole("button", { name: "Check conditions and prepare preview", exact: true }).click();
+  await page.evaluate(() => {
+    const key = "teachback-demo-v1";
+    const saved = JSON.parse(localStorage.getItem(key)!);
+    saved.runsByReservationId = { "R-2054": saved.runsByReservationId["R-2048"] };
+    localStorage.setItem(key, JSON.stringify(saved));
+  });
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Check conditions and prepare preview", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!).runsByReservationId)).toEqual({});
+});
+
 test("prepares, approves, and keeps commit bound to the agent tool", async ({ page }) => {
   await expect(
     page.getByText(
@@ -122,7 +211,7 @@ test("switches to Japanese without changing the prepared run", async ({ page }) 
   await expect(exactGuestMessage).toHaveAttribute("lang", "en");
   const digestBeforeSwitch = await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem("teachback-demo-v1") ?? "null");
-    return saved?.activeRun?.digest;
+    return saved?.runsByReservationId[saved.selectedReservationId]?.digest;
   });
 
   await page.reload();
@@ -134,7 +223,7 @@ test("switches to Japanese without changing the prepared run", async ({ page }) 
 
   const digestAfterSwitch = await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem("teachback-demo-v1") ?? "null");
-    return saved?.activeRun?.digest;
+    return saved?.runsByReservationId[saved.selectedReservationId]?.digest;
   });
   expect(digestAfterSwitch).toBe(digestBeforeSwitch);
 });
@@ -275,7 +364,7 @@ test("rejects a saved state that mixes a preview with a refusal", async ({
   await page.evaluate(() => {
     const key = "teachback-demo-v1";
     const saved = JSON.parse(localStorage.getItem(key) ?? "null");
-    saved.rejection = {
+    saved.rejectionsByReservationId["R-2048"] = {
       reservationId: "R-2048",
       reasons: ["Arrival is later than 22:00."],
     };
@@ -292,8 +381,8 @@ test("rejects a saved state that mixes a preview with a refusal", async ({
   ).toBeVisible();
   expect(await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem("teachback-demo-v1") ?? "null");
-    return { activeRun: saved?.activeRun, rejection: saved?.rejection };
-  })).toEqual({ activeRun: null, rejection: null });
+    return { runs: saved?.runsByReservationId, rejections: saved?.rejectionsByReservationId };
+  })).toEqual({ runs: {}, rejections: {} });
 });
 
 test("keeps the teaching source bound to R-2041", async ({ page }) => {
@@ -822,6 +911,8 @@ test("keeps keyboard focus inside the audit dialog and restores it", async ({
   await expect(page.getByText("Recorded actions", { exact: true }))
     .toBeVisible();
   await expect(page.locator(".app-content")).toHaveAttribute("inert", "");
+  await page.keyboard.press("Tab");
+  await expect(page.locator(".webmcp-evidence summary")).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(closeButton).toBeFocused();
   await page.keyboard.press("Escape");

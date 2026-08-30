@@ -1,21 +1,32 @@
 :root {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #111111;
-  background: #fffefc;
+  color: var(--text);
+  background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --bg: #fffefc;
-  --rail: #faf9f7;
+  --bg: #fbfaf6;
+  --rail: #f7f5ef;
   --case-selected: #f3f0e9;
-  --text: #111111;
-  --muted: #66615e;
-  --border: #d7d4d1;
+  --text: #171512;
+  --muted: #6b665f;
+  --border: #d8d3ca;
   --border-soft: #ebe8e4;
-  --selected: #fff2f0;
-  --accent: #e1251b;
-  --accent-dark: #c9251b;
-  --success: #0a7f42;
+  --selected: #f3ede5;
+  --accent: #a54436;
+  --accent-dark: #88392f;
+  --success: #4c6854;
+  --attention-bg: #f3e9e2;
+  --font-editorial: "Iowan Old Style", Baskerville, "Yu Mincho", Georgia, serif;
 }
+
+.session-notice {
+  max-width: 640px;
+  margin: 12vh auto;
+  padding: 24px;
+}
+.session-notice h1 { font-family: var(--font-editorial); font-size: 28px; line-height: 1.6; }
+.session-notice p { color: var(--muted); line-height: 1.8; margin: 20px 0 28px; }
+.refusal-reasons { color: var(--muted); font-size: 14px; line-height: 1.7; }
 
 * {
   box-sizing: border-box;
@@ -56,6 +67,7 @@ a:focus-visible {
 }
 
 .app-shell[data-locale="ja"] {
+  --font-editorial: "Yu Mincho", "Hiragino Mincho ProN", "Iowan Old Style", Georgia, serif;
   font-family: "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-feature-settings: "palt";
@@ -308,7 +320,7 @@ a:focus-visible {
 .boundary-control label {
   font-size: 13px;
   line-height: 19px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .boundary-control select {
@@ -669,7 +681,7 @@ a:focus-visible {
   color: var(--muted);
   font-size: 12px;
   line-height: 18px;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .criteria-state.is-passed {
@@ -767,6 +779,10 @@ a:focus-visible {
   color: var(--success);
   font-size: 15px;
   line-height: 22px;
+}
+
+.criteria-complete-summary.is-stale {
+  color: var(--muted);
 }
 
 .eligibility-list {
@@ -877,7 +893,7 @@ a:focus-visible {
 }
 
 .approval-scope dd {
-  font-weight: 650;
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 
@@ -944,7 +960,8 @@ a:focus-visible {
 }
 
 .approval-expiry time {
-  font-weight: 750;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .approval-status-card > p {
@@ -978,11 +995,22 @@ a:focus-visible {
 
 .expired-status {
   padding: 14px 16px;
-  border-left: 3px solid var(--accent);
-  background: var(--selected);
-  font-size: 14px;
-  line-height: 21px;
-  font-weight: 700;
+  color: var(--accent-dark);
+  background: var(--attention-bg);
+  font-size: 16px;
+  line-height: 26px;
+}
+
+/* Status headings belong to the same editorial voice as the workspace. */
+.criteria-state,
+.criteria-complete-summary strong,
+.approval-scope > strong,
+.approval-status-title strong,
+.completion-status strong,
+.expired-status,
+.review-rejected strong {
+  font-family: var(--font-editorial);
+  font-weight: 500;
 }
 
 .primary-action,
@@ -1531,18 +1559,6 @@ a:focus-visible {
 }
 
 /* Quiet Ledger redesign — selected Product Design direction */
-:root {
-  --bg: #fbfaf6;
-  --rail: #f7f5ef;
-  --text: #171512;
-  --muted: #6b665f;
-  --border: #d8d3ca;
-  --selected: #eef6f0;
-  --accent: #d83427;
-  --accent-dark: #b9271d;
-  --success: #147a45;
-}
-
 .app-header {
   min-height: 84px;
   padding: 0 42px;
@@ -1894,13 +1910,23 @@ a:focus-visible {
   font-size: 13px;
   line-height: 19px;
 }
+.night-boundary-summary select {
+  max-width: 100%;
+  width: 100%;
+  padding: 8px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  font: inherit;
+}
 
 .night-boundary-summary dt {
   color: var(--muted);
 }
 
 .night-boundary-summary dd {
-  font-weight: 650;
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .source-case-note .primary-action {
@@ -2028,10 +2054,11 @@ a:focus-visible {
 }
 
 .webmcp-availability strong {
-  color: var(--success);
+  color: var(--muted);
+  font-family: var(--font-editorial);
   font-size: 13px;
   line-height: 20px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .source-case-note,
@@ -2047,7 +2074,8 @@ a:focus-visible {
   border-bottom: 0;
 }
 
-.eligibility-list {
+.eligibility-list,
+.criteria-complete-summary {
   margin: 0 44px;
 }
 
@@ -2423,8 +2451,11 @@ a:focus-visible {
 
 .teaching-record-heading > strong {
   color: var(--accent-dark);
+  font-family: var(--font-editorial);
   font-size: 14px;
   line-height: 20px;
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .teaching-record > p {
@@ -2445,8 +2476,9 @@ a:focus-visible {
   min-height: 60px;
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   gap: 14px;
+  padding: 16px 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -2462,15 +2494,21 @@ a:focus-visible {
   border-radius: 50%;
   color: #fff;
   background: var(--text);
-  font-size: 12px;
+  margin-top: 1px;
+  font-family: var(--font-editorial);
+  font-size: 15px;
   line-height: 1;
-  font-weight: 750;
+  font-weight: 400;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .teaching-record li strong {
-  font-size: 15px;
-  line-height: 23px;
-  font-weight: 650;
+  font-family: var(--font-editorial);
+  font-size: 16px;
+  line-height: 28px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .teaching-rule-panel {
@@ -2503,7 +2541,7 @@ a:focus-visible {
   min-width: 0;
   display: flex;
   grid-template-columns: none;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   padding: 0 8px 0 0;
   border: 0;
@@ -2515,14 +2553,18 @@ a:focus-visible {
 }
 
 .teaching-rule-panel .journey-steps li > span {
-  width: auto;
+  width: 1em;
   height: auto;
   flex: 0 0 auto;
   border: 0;
   border-radius: 0;
   color: var(--muted);
   background: transparent;
-  font-size: 11px;
+  font-family: var(--font-editorial);
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 400;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .teaching-rule-panel .journey-steps li.is-complete > span,
@@ -2538,9 +2580,11 @@ a:focus-visible {
 
 .teaching-rule-panel .journey-steps strong {
   min-width: 0;
-  font-size: 11px;
-  line-height: 17px;
-  white-space: nowrap;
+  font-family: var(--font-editorial);
+  font-size: 13px;
+  line-height: 22px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .teaching-rule-panel .draft-start > p,
@@ -2600,18 +2644,17 @@ a:focus-visible {
 }
 
 .teaching-rule-facts dd {
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .teaching-rule-panel .primary-action {
   width: 100%;
   min-height: 56px;
   border-radius: 2px;
-  font-family: "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-editorial);
   font-size: 15px;
   line-height: 22px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .teaching-back {
@@ -2657,6 +2700,14 @@ a:focus-visible {
 .boundary-section-heading span,
 .draft-rules-heading span {
   color: var(--muted);
+  font-weight: 500;
+}
+
+.teaching-rule-panel .boundary-section-heading strong,
+.teaching-rule-panel .draft-rules-heading strong {
+  font-family: var(--font-editorial);
+  font-size: 14px;
+  line-height: 22px;
   font-weight: 500;
 }
 
@@ -2718,7 +2769,4 @@ a:focus-visible {
     display: none;
   }
 
-  .teaching-rule-panel .journey-steps strong {
-    font-size: 12px;
-  }
 }

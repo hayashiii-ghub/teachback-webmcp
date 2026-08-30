@@ -17,14 +17,18 @@ import {
   type Reservation,
 } from "./domain";
 import { createInitialState } from "./fixtures";
+import { DemoSession } from "./DemoSession";
 import {
   approveCurrentRun,
   discardCurrentRun,
   eligibilityReasons,
   expireApprovedRun,
   playbookForReservation,
+  playbookForPreparation,
   prepareCurrentRun,
   resetDemo,
+  runForReservation,
+  rejectionForReservation,
   selectReservation,
   selectedReservation,
 } from "./application";
@@ -235,12 +239,14 @@ function isPreparedRun(value: unknown): value is PreparedRun {
 function isAppState(value: unknown): value is AppState {
   if (
     !isRecord(value) ||
-    value.storageVersion !== 2 ||
+    value.storageVersion !== 3 ||
     !Array.isArray(value.reservations) ||
     value.reservations.length === 0 ||
     !value.reservations.every(isReservation) ||
     typeof value.selectedReservationId !== "string" ||
-    !Array.isArray(value.audit)
+    !Array.isArray(value.audit) ||
+    !isRecord(value.runsByReservationId) ||
+    !isRecord(value.rejectionsByReservationId)
   ) {
     return false;
   }
@@ -250,22 +256,27 @@ function isAppState(value: unknown): value is AppState {
   );
   const reservationIdsAreUnique =
     reservationIds.size === value.reservations.length;
-  const activeRunIsValid =
-    value.activeRun === null ||
-    (isPreparedRun(value.activeRun) &&
-      reservationIds.has(value.activeRun.reservationId) &&
-      value.activeRun.reservationId === value.selectedReservationId);
-  const rejectionIsValid =
-    value.rejection === null ||
-    (isRecord(value.rejection) &&
-      typeof value.rejection.reservationId === "string" &&
-      reservationIds.has(value.rejection.reservationId) &&
-      value.rejection.reservationId === value.selectedReservationId &&
-      Array.isArray(value.rejection.reasons) &&
-      value.rejection.reasons.length > 0 &&
-      value.rejection.reasons.every((reason) => typeof reason === "string"));
-  const executionStateIsExclusive =
-    value.activeRun === null || value.rejection === null;
+  const runs = Object.entries(value.runsByReservationId);
+  const rejections = value.rejectionsByReservationId;
+  const runsAreValid = runs.every(
+    ([id, run]) =>
+      reservationIds.has(id) && isPreparedRun(run) && run.reservationId === id,
+  );
+  const runIds = runs.map(([, run]) => (isRecord(run) ? run.id : null));
+  const runIdsAreUnique = new Set(runIds).size === runIds.length;
+  const rejectionsAreValid = Object.entries(rejections).every(
+    ([id, rejection]) =>
+      reservationIds.has(id) &&
+      isRecord(rejection) &&
+      rejection.reservationId === id &&
+      (rejection.playbookId === undefined || typeof rejection.playbookId === "string") &&
+      Array.isArray(rejection.reasons) &&
+      rejection.reasons.length > 0 &&
+      rejection.reasons.every((reason) => typeof reason === "string"),
+  );
+  const executionStateIsExclusive = runs.every(
+    ([id]) => !Object.hasOwn(rejections, id),
+  );
   const auditIsValid = value.audit.every(
     (event) =>
       isRecord(event) &&
@@ -278,19 +289,47 @@ function isAppState(value: unknown): value is AppState {
   return (
     reservationIdsAreUnique &&
     reservationIds.has(value.selectedReservationId) &&
-    activeRunIsValid &&
-    rejectionIsValid &&
+    runsAreValid &&
+    runIdsAreUnique &&
+    rejectionsAreValid &&
     executionStateIsExclusive &&
     auditIsValid
   );
+}
+
+function migrateAppState(value: unknown): unknown {
+  if (!isRecord(value) || value.storageVersion !== 2) return value;
+  // Preserve compatible v2 work without broadening which legacy states we trust.
+  const { activeRun, rejection } = value;
+  if (
+    (activeRun !== null &&
+      (!isPreparedRun(activeRun) ||
+        activeRun.reservationId !== value.selectedReservationId)) ||
+    (rejection !== null &&
+      (!isRecord(rejection) ||
+        rejection.reservationId !== value.selectedReservationId)) ||
+    (activeRun !== null && rejection !== null)
+  ) {
+    return null;
+  }
+  return {
+    storageVersion: 3,
+    reservations: value.reservations,
+    selectedReservationId: value.selectedReservationId,
+    audit: value.audit,
+    runsByReservationId: activeRun ? { [activeRun.reservationId]: activeRun } : {},
+    rejectionsByReservationId: rejection
+      ? { [String(rejection.reservationId)]: rejection }
+      : {},
+  };
 }
 
 function loadState(): AppState {
   try {
     const value = localStorage.getItem(STORAGE_KEY);
     if (!value) return createInitialState();
-    const parsed: unknown = JSON.parse(value);
-    if (isAppState(parsed)) return parsed;
+    const parsed = migrateAppState(JSON.parse(value));
+    if (isAppState(parsed)) return expireApprovedRun(parsed);
     localStorage.removeItem(STORAGE_KEY);
     return createInitialState();
   } catch {
@@ -573,11 +612,12 @@ function TeachingWorkspace({
                   value={draft.boundary.latestArrivalLimit}
                   onChange={(event) =>
                     onBoundaryChange({
-                      latestArrivalLimit: event.target.value as "22:00" | "23:00",
+                      latestArrivalLimit: event.target.value as "22:00" | "23:00" | "23:59",
                     })
                   }
                 >
                   <option value="23:00">23:00 · {copy.agentProposal}</option>
+                  <option value="23:59">23:59</option>
                   <option value="22:00">22:00 · {copy.humanBoundary}</option>
                 </select>
               </div>
@@ -600,20 +640,43 @@ function TeachingWorkspace({
                 <option value="escalate">{copy.taxiEscalate} · {copy.humanBoundary}</option>
               </select>
               </div>
+              {(["dietaryHandling", "compensationHandling"] as const).map((field) =>
+                draft.boundary[field] !== definition.boundary[field] ? (
+                  <div className="boundary-control is-risky" key={field}>
+                    <label htmlFor={`late-${field}`}>{field === "dietaryHandling" ? copy.dietaryRule : copy.compensationRule}</label>
+                    <select id={`late-${field}`} value={draft.boundary[field]}
+                      onChange={(event) => onBoundaryChange({ [field]: event.target.value as "allow" | "escalate" })}>
+                      <option value="allow">{copy.handleInPlaybook}</option>
+                      <option value="escalate">{copy.taxiEscalate}</option>
+                    </select>
+                  </div>
+                ) : null,
+              )}
               </> : (<>
                 <dl className="night-boundary-summary">
                   <div>
-                    <dt>{copy.latestArrivalRule}</dt>
-                    <dd>{definition.boundary.latestArrivalLimit}</dd>
+                    <dt><label htmlFor="night-arrival-boundary">{copy.latestArrivalRule}</label></dt>
+                    <dd>{draft.boundary.latestArrivalLimit === definition.boundary.latestArrivalLimit
+                      ? draft.boundary.latestArrivalLimit
+                      : <select id="night-arrival-boundary" value={draft.boundary.latestArrivalLimit}
+                          onChange={(event) => onBoundaryChange({ latestArrivalLimit: event.target.value as "22:00" | "23:00" | "23:59" })}>
+                          {["22:00", "23:00", "23:59"].map((time) => <option key={time} value={time}>{time}</option>)}
+                        </select>}
+                    </dd>
                   </div>
-                  <div>
-                    <dt>{copy.dietaryRule}</dt>
-                    <dd>{copy.handleInPlaybook}</dd>
-                  </div>
-                  <div>
-                    <dt>{copy.taxiRule}</dt>
-                    <dd>{copy.taxiAllow}</dd>
-                  </div>
+                  {(["dietaryHandling", "taxiHandling"] as const).map((field) => (
+                    <div key={field}>
+                      <dt><label htmlFor={`night-${field}`}>{field === "dietaryHandling" ? copy.dietaryRule : copy.taxiRule}</label></dt>
+                      <dd>{draft.boundary[field] === definition.boundary[field]
+                        ? copy.handleInPlaybook
+                        : <select id={`night-${field}`} value={draft.boundary[field]}
+                            onChange={(event) => onBoundaryChange({ [field]: event.target.value as "allow" | "escalate" })}>
+                            <option value="allow">{copy.handleInPlaybook}</option>
+                            <option value="escalate">{copy.taxiEscalate}</option>
+                          </select>}
+                      </dd>
+                    </div>
+                  ))}
                 </dl>
                 <div
                   className={`boundary-control${
@@ -657,7 +720,7 @@ function TeachingWorkspace({
                 {publishable
                   ? copy.publishReady
                   : isNight
-                    ? copy.nightPublishBlocked
+                    ? copy.boundaryCorrectionRequired
                     : copy.publishBlocked}
               </p>
             </div>
@@ -675,8 +738,8 @@ function CaseQueue({
   locale,
   reservations,
   selectedId,
-  activeRun,
-  rejectedReservationId,
+  runsByReservationId,
+  rejectionsByReservationId,
   demonstrations,
   publishedPlaybooks,
   onSelect,
@@ -684,8 +747,8 @@ function CaseQueue({
   locale: UiLocale;
   reservations: Reservation[];
   selectedId: string;
-  activeRun: PreparedRun | null;
-  rejectedReservationId: string | null;
+  runsByReservationId: AppState["runsByReservationId"];
+  rejectionsByReservationId: AppState["rejectionsByReservationId"];
   demonstrations: Demonstration[];
   publishedPlaybooks: PublishedPlaybook[];
   onSelect(id: string): void;
@@ -867,8 +930,9 @@ function CaseQueue({
               reservation,
               demonstrations,
               publishedPlaybooks,
-              activeRun,
-              rejectedReservationId,
+              activeRun: runsByReservationId[reservation.id] ?? null,
+              rejectedReservationId:
+                rejectionsByReservationId[reservation.id]?.reservationId ?? null,
             });
             const labels: Record<CaseQueueStatus, string> = {
               unhandled: copy.caseUnhandled,
@@ -1266,6 +1330,7 @@ function ReviewPanel({
   isSourceCase,
   canTeach,
   playbookId,
+  canCheck,
   webMcpStatus,
   run,
   rejectionReasons,
@@ -1279,6 +1344,7 @@ function ReviewPanel({
   isSourceCase: boolean;
   canTeach: boolean;
   playbookId: PlaybookId | null;
+  canCheck: boolean;
   webMcpStatus: WebMcpStatus;
   run: PreparedRun | null;
   rejectionReasons: string[] | null;
@@ -1309,7 +1375,9 @@ function ReviewPanel({
         ? copy.nextAction
         : copy.review;
   rejectionReasons?.forEach((reason) => {
-    const index = FAILED_CRITERION_BY_REASON[reason];
+    const index = reason.startsWith("Arrival is later than ")
+      ? 3
+      : FAILED_CRITERION_BY_REASON[reason];
     if (index !== undefined) failedCriteria.add(index);
   });
 
@@ -1351,6 +1419,7 @@ function ReviewPanel({
         <div className="source-case-note">
           <strong>{copy.unmatchedHeading}</strong>
           <p>{copy.unmatchedBody}</p>
+          {canCheck ? <button className="primary-action" type="button" onClick={onPrepare}>{copy.checkConditions}</button> : null}
         </div>
       ) : isRejected ? (
         <>
@@ -1371,11 +1440,14 @@ function ReviewPanel({
           <div className="review-rejected">
             <CloseIcon className="rejected-icon" />
             <strong>{copy.outsideBoundary}</strong>
+            <div className="refusal-reasons">
+              {rejectionReasons?.map((reason) => <p key={reason}>{systemMessageLabel(locale, reason)}</p>)}
+            </div>
           </div>
         </>
       ) : showCriteriaSummary ? (
         isApproved || isCommitted ? null : (
-          <div className="criteria-complete-summary">
+          <div className={`criteria-complete-summary${isStale ? " is-stale" : ""}`}>
             <strong>{copy.criteriaAllPassed}</strong>
           </div>
         )
@@ -1393,6 +1465,7 @@ function ReviewPanel({
       )}
       {isAwaiting && run ? <ApprovalScope locale={locale} run={run} /> : null}
       <div className="review-actions">
+        {isRejected && canCheck ? <button className="primary-action" type="button" onClick={onPrepare}>{copy.checkConditions}</button> : null}
         {!isSourceCase && playbookId && !isRejected ? (
           <>
             {(!run || isDiscarded) ? (
@@ -1499,7 +1572,7 @@ function AuditDrawer({
 
       const focusable = Array.from(
         drawerRef.current?.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          'button:not([disabled]), summary, [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ) ?? [],
       );
       if (focusable.length === 0) {
@@ -1610,6 +1683,10 @@ function AuditDrawer({
 }
 
 export default function App() {
+  return <DemoSession><TeachbackApp /></DemoSession>;
+}
+
+function TeachbackApp() {
   const [state, dispatch] = useReducer(stateReducer, undefined, loadState);
   const stateRef = useRef(state);
   const [journey, setJourney] = useState<TeachingJourney>(loadTeachingJourney);
@@ -1745,15 +1822,20 @@ export default function App() {
     };
   }, [commitState, commitTeachingJourney, reportWebMcpCall]);
 
-  const approvedRunId =
-    state.activeRun?.status === "approved" ? state.activeRun.id : null;
-  const approvalExpiresAt =
-    state.activeRun?.status === "approved" && state.activeRun.approvalExpiresAt
-      ? Date.parse(state.activeRun.approvalExpiresAt)
-      : Number.NaN;
+  // Expiry is independent of which case is visible. Schedule the nearest deadline.
+  const approvalExpiresAt = Math.min(
+    ...Object.values(state.runsByReservationId)
+      .filter((run) => run.status === "approved")
+      .map((run) => {
+        const expiresAt = run.approvalExpiresAt
+          ? Date.parse(run.approvalExpiresAt)
+          : NaN;
+        return Number.isFinite(expiresAt) ? expiresAt : 0;
+      }),
+  );
 
   useEffect(() => {
-    if (!approvedRunId) return;
+    if (!Number.isFinite(approvalExpiresAt)) return;
 
     const markExpired = () => {
       const current = stateRef.current;
@@ -1767,7 +1849,7 @@ export default function App() {
       : 0;
     const timer = window.setTimeout(markExpired, delay + 25);
     return () => window.clearTimeout(timer);
-  }, [approvedRunId, approvalExpiresAt, commitState]);
+  }, [approvalExpiresAt, commitState]);
 
   const reservation = selectedReservation(state);
   const sourceDemonstration = demonstrationForReservation(
@@ -1775,12 +1857,11 @@ export default function App() {
     reservation.id,
   );
   const isSourceCase = sourceDemonstration !== null;
-  const visibleRun =
-    state.activeRun?.reservationId === reservation.id ? state.activeRun : null;
-  const rejectionReasons =
-    state.rejection?.reservationId === reservation.id
-      ? state.rejection.reasons
-      : null;
+  const visibleRun = runForReservation(state);
+  const rejectionReasons = rejectionForReservation(state)?.reasons ?? null;
+  const rejectedPlaybook = journey.publishedPlaybooks.find(
+    (playbook) => playbook.id === rejectionForReservation(state)?.playbookId,
+  ) ?? null;
   const applicablePlaybook = isSourceCase
     ? sourceDemonstration
       ? publishedPlaybookForDemonstration(
@@ -1795,7 +1876,7 @@ export default function App() {
     ? journey.publishedPlaybooks.find(
         (playbook) => playbook.id === visibleRun.playbookId,
       ) ?? applicablePlaybook
-    : applicablePlaybook;
+    : applicablePlaybook ?? rejectedPlaybook;
   const sourceReservation = visiblePlaybook
     ? reservationForDemonstration(
         state.reservations,
@@ -1829,7 +1910,7 @@ export default function App() {
 
   const prepare = useCallback(async () => {
     const sourceState = stateRef.current;
-    const playbook = playbookForReservation(
+    const playbook = playbookForPreparation(
       selectedReservation(sourceState),
       journeyRef.current.publishedPlaybooks,
     );
@@ -1908,9 +1989,17 @@ export default function App() {
       selectedReservationId = "R-2048",
     ) => {
       const nextState: AppState = {
-        ...createInitialState(),
+        ...stateRef.current,
         selectedReservationId,
-        audit: teachingAuditEvents(published),
+        rejectionsByReservationId: Object.fromEntries(Object.entries(stateRef.current.rejectionsByReservationId).filter(
+          ([id]) => {
+            const reservation = stateRef.current.reservations.find((item) => item.id === id);
+            return !reservation || !playbookForReservation(reservation, published.publishedPlaybooks);
+          },
+        )),
+        audit: [...stateRef.current.audit, ...teachingAuditEvents(published).filter(
+          (event) => !stateRef.current.audit.some((existing) => existing.id === event.id),
+        )],
       };
       journeyRef.current = published;
       setJourney(published);
@@ -2048,8 +2137,8 @@ export default function App() {
                 ? state.selectedReservationId
                 : teachingReservation.id
             }
-            activeRun={state.activeRun}
-            rejectedReservationId={state.rejection?.reservationId ?? null}
+            runsByReservationId={state.runsByReservationId}
+            rejectionsByReservationId={state.rejectionsByReservationId}
             demonstrations={journey.demonstrations}
             publishedPlaybooks={journey.publishedPlaybooks}
             onSelect={journey.stage === "reuse" ? select : selectWhileTeaching}
@@ -2071,6 +2160,7 @@ export default function App() {
                 isSourceCase={isSourceCase}
                 canTeach={canTeach}
                 playbookId={visiblePlaybook?.id ?? null}
+                canCheck={journey.publishedPlaybooks.length > 0}
                 webMcpStatus={webMcpStatus}
                 run={visibleRun}
                 rejectionReasons={rejectionReasons}

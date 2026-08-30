@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approveCurrentRun } from "./application";
+import { approveCurrentRun, runForReservation, selectReservation } from "./application";
 import type { AppState } from "./domain";
 import { createInitialState } from "./fixtures";
 import {
@@ -44,6 +44,35 @@ function harness(initialJourney = createPublishedJourney()) {
 }
 
 describe("WebMCP tool adapter", () => {
+  it("refuses an unsafe case against a published rule with reasons and audit", async () => {
+    const h = harness();
+    h.setState(selectReservation(h.getState(), "R-2060"));
+    const result = JSON.parse(await h.tools.find(t => t.name === "teachback_prepare_current")!.execute({}));
+    expect(result.code).toBe("PLAYBOOK_NOT_APPLICABLE");
+    expect(result.reasons).toContain("Compensation requests are outside this playbook.");
+    expect(h.getState().rejectionsByReservationId["R-2060"]?.playbookId).toBe("late-arrival-care@1");
+    expect(h.getState().audit.at(-1)?.summary).toContain("Rejected");
+    expect(runForReservation(h.getState())).toBeNull();
+  });
+
+  it("retains approval across navigation without exposing or committing another case's run", async () => {
+    const h = harness();
+    const prepare = h.tools.find(t => t.name === "teachback_prepare_current")!;
+    const current = h.tools.find(t => t.name === "teachback_get_current_case")!;
+    const commit = h.tools.find(t => t.name === "teachback_commit_approved")!;
+    const preview = JSON.parse(await prepare.execute({}));
+    h.setState(approveCurrentRun(h.getState()).state);
+    h.setState(selectReservation(h.getState(), "R-2054"));
+    expect(JSON.parse(await current.execute({})).data.active_run).toBeNull();
+    const input = { run_id: preview.data.run_id, expected_digest: preview.data.digest };
+    expect(JSON.parse(await commit.execute(input)).code).toBe("RUN_NOT_FOUND");
+    h.setState(selectReservation(h.getState(), "R-2048"));
+    expect(JSON.parse(await current.execute({})).data.active_run).toMatchObject({ run_id: input.run_id, status: "approved" });
+    expect(JSON.parse(await commit.execute(input)).code).toBe("RUN_COMMITTED");
+    h.setState(selectReservation(selectReservation(h.getState(), "R-2050"), "R-2048"));
+    expect(JSON.parse(await commit.execute(input)).code).toBe("RUN_ALREADY_COMMITTED");
+  });
+
   it("reads the demonstration and accepts only a bounded unpublished draft", async () => {
     const testHarness = harness(createTeachingJourney());
     const readTool = testHarness.tools.find(
@@ -90,7 +119,7 @@ describe("WebMCP tool adapter", () => {
 
     expect(current.code).toBe("CURRENT_CASE");
     expect(prepared.code).toBe("RUN_PREPARED");
-    expect(testHarness.getState().activeRun?.status).toBe("awaiting_review");
+    expect(runForReservation(testHarness.getState())?.status).toBe("awaiting_review");
     expect(testHarness.calls).toEqual([
       { name: "teachback_get_current_case", code: "CURRENT_CASE" },
       { name: "teachback_prepare_current", code: "RUN_PREPARED" },
@@ -187,7 +216,7 @@ describe("WebMCP tool adapter", () => {
     );
 
     expect(result.code).toBe("PUBLISHED_BOUNDARY_CHANGED");
-    expect(testHarness.getState().activeRun?.status).toBe("approved");
+    expect(runForReservation(testHarness.getState())?.status).toBe("approved");
   });
 
   it("honors an already-aborted execution signal", async () => {
@@ -201,7 +230,7 @@ describe("WebMCP tool adapter", () => {
     await expect(
       prepareTool.execute({}, { signal: controller.signal }),
     ).rejects.toMatchObject({ name: "AbortError" });
-    expect(testHarness.getState().activeRun).toBeNull();
+    expect(runForReservation(testHarness.getState())).toBeNull();
   });
 
   it("does not overwrite newer state when preparation finishes late", async () => {
@@ -220,6 +249,6 @@ describe("WebMCP tool adapter", () => {
 
     expect(result.code).toBe("STALE_CONTEXT");
     expect(testHarness.getState()).toBe(newerState);
-    expect(testHarness.getState().activeRun).toBeNull();
+    expect(runForReservation(testHarness.getState())).toBeNull();
   });
 });

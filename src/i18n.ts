@@ -15,6 +15,8 @@ export const UI_COPY = {
     englishLanguage: "English",
     japaneseLanguage: "日本語",
     resetDemo: "Reset demo",
+    checkConditions: "Check conditions",
+    boundaryCorrectionRequired: "Review the proposed values and confirm the highlighted conditions before publishing.",
     primaryPitch: "Reuse one taught workflow with conditions and approval.",
     teachingHeadline: "Create a reusable rule from a handled case",
     teachingBody:
@@ -249,6 +251,8 @@ export const UI_COPY = {
     englishLanguage: "English",
     japaneseLanguage: "日本語",
     resetDemo: "デモをリセット",
+    checkConditions: "条件を確認",
+    boundaryCorrectionRequired: "提案された値を確認し、選択できる条件を確定してから公開してください。",
     primaryPitch: "教えた対応を、条件と承認付きで再利用する。",
     teachingHeadline: "対応例から再利用ルールを作る",
     teachingBody:
@@ -621,6 +625,8 @@ export function valueLabel(
 }
 
 export function reasonLabel(locale: UiLocale, reason: string): string {
+  const arrivalLimit = /^Arrival is later than (\d{2}:\d{2})\.$/.exec(reason);
+  if (locale === "ja" && arrivalLimit) return `到着予定が${arrivalLimit[1]}を過ぎています。`;
   return REASON_LABELS[locale][reason] ?? reason;
 }
 
@@ -793,5 +799,5 @@ export function systemMessageLabel(locale: UiLocale, message: string): string {
 
   const selected = message.match(/^Selected reservation (.+)\.$/);
   if (selected) return `予約 ${selected[1]} を選択しました。`;
-  return SYSTEM_MESSAGES_JA[message] ?? message;
+  return SYSTEM_MESSAGES_JA[message] ?? reasonLabel(locale, message);
 }

@@ -101,6 +101,7 @@ export interface PreparedRun {
 
 export interface Rejection {
   reservationId: string;
+  playbookId?: PlaybookId;
   reasons: string[];
 }
 
@@ -112,11 +113,11 @@ export interface AuditEvent {
 }
 
 export interface AppState {
-  storageVersion: 2;
+  storageVersion: 3;
   reservations: Reservation[];
   selectedReservationId: string;
-  activeRun: PreparedRun | null;
-  rejection: Rejection | null;
+  runsByReservationId: Record<string, PreparedRun>;
+  rejectionsByReservationId: Record<string, Rejection>;
   audit: AuditEvent[];
 }
 

@@ -2,8 +2,9 @@ import type { AppState, PlaybookBoundary, ToolResult } from "./domain";
 import {
   commitApprovedRun,
   currentCaseResult,
-  playbookForReservation,
+  playbookForPreparation,
   prepareCurrentRun,
+  runForReservation,
   selectedReservation,
 } from "./application";
 import {
@@ -237,7 +238,7 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
           });
         }
         const sourceState = service.getState();
-        const playbook = playbookForReservation(
+        const playbook = playbookForPreparation(
           selectedReservation(sourceState),
           teaching.publishedPlaybooks,
         );
@@ -318,15 +319,16 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
           });
         }
         const sourceState = service.getState();
-        const activePlaybook = sourceState.activeRun
+        const run = runForReservation(sourceState);
+        const activePlaybook = run
           ? teaching.publishedPlaybooks.find(
-              (playbook) => playbook.id === sourceState.activeRun?.playbookId,
+              (playbook) => playbook.id === run.playbookId,
             )
           : null;
         if (
-          sourceState.activeRun &&
+          run &&
           (!activePlaybook ||
-          JSON.stringify(sourceState.activeRun.playbookBoundary) !==
+          JSON.stringify(run.playbookBoundary) !==
             JSON.stringify(activePlaybook.boundary))
         ) {
           return response({

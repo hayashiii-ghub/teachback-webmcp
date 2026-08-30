@@ -8,6 +8,7 @@ import {
   type PreparedRun,
   type ProposedChange,
   type PublishedPlaybook,
+  type Rejection,
   type Reservation,
   type ToolResult,
 } from "./domain";
@@ -57,11 +58,36 @@ export function selectReservation(state: AppState, reservationId: string): AppSt
   return {
     ...state,
     selectedReservationId: reservationId,
-    activeRun:
-      state.activeRun?.reservationId === reservationId ? state.activeRun : null,
-    rejection:
-      state.rejection?.reservationId === reservationId ? state.rejection : null,
   };
+}
+
+export function runForReservation(
+  state: AppState,
+  reservationId = state.selectedReservationId,
+): PreparedRun | null {
+  return state.runsByReservationId[reservationId] ?? null;
+}
+
+export function rejectionForReservation(
+  state: AppState,
+  reservationId = state.selectedReservationId,
+): Rejection | null {
+  return state.rejectionsByReservationId[reservationId] ?? null;
+}
+
+function withCaseWork(
+  state: AppState,
+  run: PreparedRun | null,
+  rejection: Rejection | null = null,
+): AppState {
+  const id = state.selectedReservationId;
+  const runsByReservationId = { ...state.runsByReservationId };
+  const rejectionsByReservationId = { ...state.rejectionsByReservationId };
+  if (run) runsByReservationId[id] = run;
+  else delete runsByReservationId[id];
+  if (rejection) rejectionsByReservationId[id] = rejection;
+  else delete rejectionsByReservationId[id];
+  return { ...state, runsByReservationId, rejectionsByReservationId };
 }
 
 export function eligibilityReasons(
@@ -116,6 +142,18 @@ export function playbookForReservation(
       (playbook) => eligibilityReasons(reservation, playbook.boundary).length === 0,
     ) ?? null
   );
+}
+
+// Match first; if none applies, evaluate the closest published rule so the
+// operator/agent gets concrete refusal reasons instead of "not published".
+export function playbookForPreparation(
+  reservation: Reservation,
+  publishedPlaybooks: PublishedPlaybook[],
+): PublishedPlaybook | null {
+  return [...publishedPlaybooks].sort((left, right) =>
+    eligibilityReasons(reservation, left.boundary).length -
+    eligibilityReasons(reservation, right.boundary).length,
+  )[0] ?? null;
 }
 
 function playbookName(playbookId: PlaybookId): string {
@@ -261,14 +299,16 @@ export async function prepareCurrentRun(
   const reservation = selectedReservation(state);
   const boundary = playbook.boundary;
 
+  if (runForReservation(state)?.status === "committed") {
+    return failure(state, "RUN_ALREADY_COMMITTED", "This run was already committed.");
+  }
+
   const reasons = eligibilityReasons(reservation, boundary);
 
   if (reasons.length > 0) {
     return {
       state: {
-        ...state,
-        activeRun: null,
-        rejection: { reservationId: reservation.id, reasons },
+        ...withCaseWork(state, null, { reservationId: reservation.id, playbookId: playbook.id, reasons }),
         audit: [
           ...state.audit,
           makeAuditEvent(
@@ -315,9 +355,7 @@ export async function prepareCurrentRun(
 
   return {
     state: {
-      ...state,
-      activeRun: run,
-      rejection: null,
+      ...withCaseWork(state, run),
       audit: [
         ...state.audit,
         makeAuditEvent(
@@ -350,11 +388,11 @@ export function approveCurrentRun(
   state: AppState,
   now = new Date(),
 ): { state: AppState; result: ToolResult } {
-  const run = state.activeRun;
+  const run = runForReservation(state);
   if (
     !run ||
     run.status !== "awaiting_review" ||
-    state.rejection !== null ||
+    rejectionForReservation(state) !== null ||
     state.selectedReservationId !== run.reservationId
   ) {
     return {
@@ -377,8 +415,7 @@ export function approveCurrentRun(
 
   return {
     state: {
-      ...state,
-      activeRun: approvedRun,
+      ...withCaseWork(state, approvedRun),
       audit: [
         ...state.audit,
         makeAuditEvent("Human", `Approved preview ${run.id}.`, now),
@@ -397,14 +434,16 @@ export function discardCurrentRun(
   state: AppState,
   now = new Date(),
 ): AppState {
-  if (!state.activeRun) return state;
+  const run = runForReservation(state);
+  if (!run || !["awaiting_review", "approved", "stale"].includes(run.status)) {
+    return state;
+  }
 
   return {
-    ...state,
-    activeRun: { ...state.activeRun, status: "discarded" },
+    ...withCaseWork(state, { ...run, status: "discarded" }),
     audit: [
       ...state.audit,
-      makeAuditEvent("Human", `Discarded preview ${state.activeRun.id}.`, now),
+      makeAuditEvent("Human", `Discarded preview ${run.id}.`, now),
     ],
   };
 }
@@ -413,22 +452,26 @@ export function expireApprovedRun(
   state: AppState,
   now = new Date(),
 ): AppState {
-  const run = state.activeRun;
-  if (!run || run.status !== "approved") return state;
-
-  const approvalExpiresAt = run.approvalExpiresAt
-    ? Date.parse(run.approvalExpiresAt)
-    : Number.NaN;
-  if (Number.isFinite(approvalExpiresAt) && approvalExpiresAt > now.getTime()) {
-    return state;
+  const expiredRuns = Object.values(state.runsByReservationId).filter((run) => {
+    if (run.status !== "approved") return false;
+    const expiresAt = run.approvalExpiresAt
+      ? Date.parse(run.approvalExpiresAt)
+      : NaN;
+    return !Number.isFinite(expiresAt) || expiresAt <= now.getTime();
+  });
+  if (expiredRuns.length === 0) return state;
+  const runsByReservationId = { ...state.runsByReservationId };
+  for (const run of expiredRuns) {
+    runsByReservationId[run.reservationId] = { ...run, status: "stale" };
   }
-
   return {
     ...state,
-    activeRun: { ...run, status: "stale" },
+    runsByReservationId,
     audit: [
       ...state.audit,
-      makeAuditEvent("Website", `Expired approval for preview ${run.id}.`, now),
+      ...expiredRuns.map((run) =>
+        makeAuditEvent("Website", `Expired approval for preview ${run.id}.`, now),
+      ),
     ],
   };
 }
@@ -438,13 +481,13 @@ export async function commitApprovedRun(
   input: { runId: string; expectedDigest: string },
   now = new Date(),
 ): Promise<{ state: AppState; result: ToolResult }> {
-  const run = state.activeRun;
+  const run = runForReservation(state);
 
   if (!run || run.id !== input.runId) {
     return failure(state, "RUN_NOT_FOUND", "The prepared run was not found.");
   }
   if (
-    state.rejection !== null ||
+    rejectionForReservation(state) !== null ||
     state.selectedReservationId !== run.reservationId
   ) {
     return failure(
@@ -549,13 +592,12 @@ export async function commitApprovedRun(
     committedAt: nowIso(now),
   };
   const nextState: AppState = {
-    ...state,
+    ...withCaseWork(state, committedRun),
     reservations: state.reservations.map((reservation) =>
       reservation.id === committedReservation.id
         ? committedReservation
         : reservation,
     ),
-    activeRun: committedRun,
     audit: [
       ...state.audit,
       makeAuditEvent(
@@ -595,6 +637,7 @@ export function resetDemo(): AppState {
 
 export function currentCaseResult(state: AppState): ToolResult {
   const reservation = selectedReservation(state);
+  const run = runForReservation(state);
   return {
     ok: true,
     code: "CURRENT_CASE",
@@ -611,11 +654,11 @@ export function currentCaseResult(state: AppState): ToolResult {
       taxi_requested: reservation.requestsTaxi,
       taxi_arranged: reservation.taxiArranged,
       compensation_requested: reservation.requestsCompensation,
-      active_run: state.activeRun
+      active_run: run
         ? {
-            run_id: state.activeRun.id,
-            status: state.activeRun.status,
-            digest: state.activeRun.digest,
+            run_id: run.id,
+            status: run.status,
+            digest: run.digest,
           }
         : null,
     },

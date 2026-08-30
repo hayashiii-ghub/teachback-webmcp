@@ -22,6 +22,8 @@ bun run dev
 
 Open the local URL printed by Vite. The UI includes local fallback controls so the preview and refusal states can be checked without an agent.
 
+Demo work is saved in this browser's local storage. Only one tab per origin can edit at a time, enforced through Web Locks before the application or its tools mount. Close the active tab and reload the other tab to continue there. This prevents stale tabs from restoring discarded approvals; it is not cross-device synchronization or a server-side authorization boundary. A browser with Web Locks support is required.
+
 ## WebMCP tools
 
 The page registers five fixed tools through `document.modelContext.registerTool()`:

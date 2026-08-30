@@ -193,11 +193,11 @@ export const demonstrationFixtures: Demonstration[] = [
 
 export function createInitialState(): AppState {
   return {
-    storageVersion: 2,
+    storageVersion: 3,
     reservations: structuredClone(reservationFixtures),
     selectedReservationId: "R-2048",
-    activeRun: null,
-    rejection: null,
+    runsByReservationId: {},
+    rejectionsByReservationId: {},
     audit: [
       {
         id: "audit-seed",
