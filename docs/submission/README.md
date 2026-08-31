@@ -1,5 +1,7 @@
 # Teachback submission materials
 
+> 2026-08-31 implementation note: the current site implementation now records actual work before drafting and uses seven preparation-only WebMCP tools. This folder preserves the previously submitted demo, video, and entry text; they are not updated as part of this site release. See the [current README](../../README.md) for the current workflow.
+
 Updated 2026-08-30. The 94-second English video is exported, checked, and accepted
 by the creator. This package contains entry copy and five video stills for
 publication with the source. The video is **public on YouTube** with the creator's

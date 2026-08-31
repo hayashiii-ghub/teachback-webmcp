@@ -1,99 +1,120 @@
 # Teachback
 
-Teachback turns recorded frontline work into reusable workflows with human-set boundaries and approval for each execution. WebMCP lets an agent propose and request changes; the website checks whether those changes may be applied.
+人が一件の対応を記録し、WebMCP対応Agentが再利用できる手順の草案を作り、人が確定した条件と承認の範囲で別案件へ適用するプロトタイプです。
 
-**Live demo:** [teachback-webmcp.haygsiiii.chatgpt.site](https://teachback-webmcp.haygsiiii.chatgpt.site/)
+**現在の実装は「実演 → 草案 → 公開 → 再利用」フローです。YouTube動画と提出済みDevpostの説明は旧デモの記録で、現在の画面・ツール構成とは異なります。** 過去の説明は[旧デモのREADME](docs/legacy-demo-readme.md)に保存しています。
 
-This challenge prototype includes two complementary flows:
+- [実装計画](docs/implementation-plan-teachback-core.md)
+- [ローカル確認手順と検証記録](docs/core-workflow-verification.md)
+- [公開サイト](https://teachback-webmcp.haygsiiii.chatgpt.site/)
+- [以前の公開動画](https://www.youtube.com/watch?v=E8-ijshSw_g)
 
-- **Teach and reuse — the video story:** A staff response to Sofia's reservation supplies the recorded actions. An agent submits a draft through WebMCP. A person changes compensation handling to escalation and publishes Night Arrival Coordination. The agent then prepares changes for Daniel. An unapproved attempt returns `RUN_NOT_APPROVED`; after a person approves, the same run and digest return `RUN_COMMITTED`.
-- **Try an existing rule:** Aiko's handled reservation supplies the published Late Arrival Care rule. Emma is the initial selected case and can use that rule without first teaching a new one.
+## ローカル起動
 
-The five registered tools expose reading, drafting, preview preparation, and approved application. Rule publication and proposal approval remain page actions, not WebMCP tools. Cases outside a published rule's conditions are refused with explicit reasons.
-
-## Demo video
-
-Watch the **[94-second English demo on YouTube](https://youtu.be/E8-ijshSw_g)**. It follows Sofia → human-set boundary → Daniel → refusal → approval → application. The creator-approved video is public; the contest submission is still pending.
-
-- [Final cut and proof timestamps](docs/demo-script.md)
-- [English narration with final timing](docs/video-shoot/SCRIPT.md)
-- [Screenshots extracted from the final MP4](docs/submission/SCREENSHOTS.md)
-- [Submission materials and delivery status](docs/submission/README.md)
-
-The supplied reservations and recorded actions are synthetic demo data. This video does not demonstrate a general-purpose recorder that learns arbitrary work from a screen recording.
-
-## Run locally
-
-Requirements: Bun 1.3.13+ and Node.js 22+.
+Bun 1.3.13+ / Node.js 22+。
 
 ```sh
 bun install
-bun run dev
+bun run dev --port 4318 --hostname 127.0.0.1
 ```
 
-Open the local URL printed by Vite. The UI includes local fallback controls so the preview and refusal states can be checked without an agent.
+ビルド済みの画面を確認する場合：
 
-Demo work is saved in this browser's local storage. Only one tab per origin can edit at a time, enforced through Web Locks before the application or its tools mount. Close the active tab and reload the other tab to continue there. This prevents stale tabs from restoring discarded approvals; it is not cross-device synchronization or a server-side authorization boundary. A browser with Web Locks support is required.
+```sh
+bun run build
+./node_modules/.bin/vinext start --port 4318 --hostname 127.0.0.1
+```
 
-## WebMCP tools
+起動ログのURLを開きます。既に同じポートで起動している場合は二重起動しないでください。
 
-The page registers five fixed tools through `document.modelContext.registerTool()`:
+## 新しい体験
 
-- `teachback_get_latest_demonstration`
-- `teachback_submit_playbook_draft`
-- `teachback_get_current_case`
-- `teachback_prepare_current`
-- `teachback_commit_approved`
+1. 「対応を記録」で一件の予約を選び、実際に時刻・食事・案内文・引き継ぎを保存します。使わない操作を無理に追加する必要はありません。
+2. 記録を完了し、画面の依頼文を外部のWebMCP対応Agentへ渡します。コピーだけではAgentは動きません。
+3. Agentが保存済みの操作・前後差分・根拠IDを読み、操作と変数の草案を提出します。サイトは完成草案を返しません。
+4. 人が元の対応、変数、適用条件を確認して公開します。記録にない操作、元の対応を再現できない文面、22:00を超える上限は公開できません。
+5. Agentまたは画面から、別の予約への変更案を作ります。まだ予約は変わりません。
+6. 人が変更内容を確認し、画面で「承認して反映」を押します。サイトが承認した内容だけを反映します。Agentへの続行依頼は不要です。
 
-The demonstration tool reads semantic actions from the active handled case. The draft tool can submit only a bounded proposal and cannot publish it. Publication remains a human action in the page.
+初期データは8件の合成予約のみです。実演・草案・公開手順は0件から始まります。操作部品は4種類に限定していますが、公開された手順の内容・文面を固定辞書で置き換えません。新しい食事制限・タクシー・補償・キャンセル・支払変更などは担当者へ返します。
 
-The prepare tool operates only on the case visibly selected in the page. The commit tool requires the run ID and SHA-256 digest recorded at preview time, a matching unexpired human approval, an unchanged reservation version, and a run that has not already committed.
+### 画面の使い分け
 
-### Chrome testing
+- **案件**：実際の対応を記録する、または公開した手順から変更案を作り、内容を承認して反映する場所です。
+- **手順**：元の記録、確認する草案、公開済みの版を管理します。草案は「操作内容 → 適用条件 → 確認・公開」に分かれ、一度に一つの操作を元の対応と比較できます。未保存の修正がある場合は、保存・再検査してから次へ進みます。
+- **履歴**：人とAgentが何をしたかを確認し、セッションを退避できます。
 
-1. Use Chrome 149 or later.
-2. Enable `chrome://flags/#enable-webmcp-testing` and relaunch Chrome.
-3. Open Teachback directly.
-4. To test reuse, keep Emma selected and ask the WebMCP-aware agent to inspect and prepare the current case.
-5. Approve the exact preview in Teachback, then ask the agent to apply it.
-6. Reset the demo, select Sofia, and choose **Teach from this case**.
-7. Ask the agent to read the latest demonstration and submit a playbook draft.
-8. Review the boundary in Teachback. For the video's draft, change compensation handling from automatic to escalation, then publish. Daniel is selected as the next reusable case.
-9. Ask the agent to prepare Daniel and retain the returned run ID and digest. Before approving, ask it to apply that proposal: expect `RUN_NOT_APPROVED`.
-10. Approve the exact preview in Teachback. Within five minutes, ask the agent to retry with the same run ID and digest: expect `RUN_COMMITTED`. Do not prepare a replacement proposal between these calls.
+手順を公開した後は公開内容を表示し、再利用先の案件を明示的に選びます。別の手順で確認中・承認済みの変更案は上書きしません。公開済みの旧版から編集を始める場合は、まず最新版を開きます。
 
-Open **View audit trail** and expand **WebMCP connected** to inspect the registered tool count and the actual latest tool name/result. Inspect the refusal before making another tool call, which replaces the latest-call display. The separate audit entries record workflow events such as publication, approval, and application; they are not a permanent log of every failed tool request.
+画面は従来の明朝・セリフの見出し、アイボリー、落ち着いた赤と緑を継承しています。ナビゲーションと小さな入力ラベルは読みやすいサンセリフで区別しています。
 
-## Validation
+## WebMCPの役割
+
+WebMCPの役割は、**記録から草案を作ることと、別案件への変更案を準備すること**です。公開・承認・反映は人が画面で行います。公開手順の条件判定・差分生成はサイトの決定的な処理であり、AIが判定を上書きするものではありません。1件ずつの再利用は画面からも準備できます。
+
+ページは `document.modelContext.registerTool()` から7個の固定ツールを登録します。
+
+| ツール | 役割 |
+|---|---|
+| `teachback_get_demonstration` | 完了した実演の具体値、前後差分、根拠、操作カタログを読む |
+| `teachback_create_draft` | Agent自身が考えた手順・変数・文面・条件を提出する |
+| `teachback_update_draft` | revisionを照合して草案を修正する |
+| `teachback_list_playbooks` | 人が公開した実体と版を読む |
+| `teachback_list_cases` | 予約ID・version・対応状態を読む |
+| `teachback_prepare_run` | 明示した予約と公開版から変更案を作る |
+| `teachback_get_run` | 保存された変更案と、画面での反映結果を読む |
+
+草案の更新が競合した場合、`DRAFT_CONFLICT` の `data` に最新の草案を返します。Agentは人の修正を確認し、最新の `revision` と新しい `request_id` で再提出します。同じリクエストの再送は同じ結果を返し、別の草案を選択しません。
+
+公開・承認・反映・生の予約変更用ツールはありません。`teachback_commit_run` は公開ツールから外しました。準備は選択中の画面ではなく、明示したIDを対象にします。Agentが別予約の変更案を準備した場合は、その予約へ移る案内を表示します。
+
+「7ツール登録済み」はサイトがツールを公開した状態です。外部Agentが実際に呼べることとは別なので、詳細欄の最終呼び出しと結果も確認してください。通常のページ読み取り機能を、WebMCP実行機能として扱わないでください。Agentは草案・変更案を提出したら、人の画面での確認に渡して終了します。
+
+Agentが利用できない場合も記録・確認・再利用は画面で操作できます。草案をJSONで手動入力する入口は上級者向けで、履歴には人の作成と記録します。AI生成として表示しません。
+
+## 実装
+
+新しいフローは `app/page.tsx → src/core/WorkflowApp.tsx` から起動します。
+
+| 箇所 | 責務 |
+|---|---|
+| `src/core/domain.ts` | 記録・草案・公開版・Run・承認の型 |
+| `commands.ts` / `recording.ts` | 共通の4操作と実際の対応記録 |
+| `playbook-schema.ts` / `playbook-policy.ts` | 入力・根拠・実演再現・固定制約の検査 |
+| `teaching.ts` | 草案の版管理、人の公開、不変の公開版 |
+| `playbook-runtime.ts` | 公開内容の解釈、変更案、承認、反映 |
+| `persistence.ts` | 単一sessionの保存、競合・非同期処理の制御 |
+| `webmcp.ts` | 型付きツール、再送制御、登録・解除 |
+| `RecordingPanel.tsx` / `PlaybookDraftEditor.tsx` | 実演と根拠の見える編集画面 |
+
+表内で省略したパスも `src/core/` 配下です。以前の `src/App.tsx` 等は既存の変更を失わないため保持し、新エントリからは使いません。
+
+## 保存と安全境界
+
+新キーは `teachback-session-v1`。予約更新・操作記録・監査を一つのJSONで保存し、書き込み成功後だけメモリとUIへ確定します。保存失敗は操作失敗です。リセット・キャンセル・途中の再読み込みで未確定処理を復活させません。
+
+旧デモの保存キーは上書き・削除・自動変換しません。旧データを検出した場合は、新しい体験の開始を明示的に選びます。旧データや現在のsessionを退避できます。不正な保存内容も勝手に初期化しません。
+
+Web Locksによって同じoriginの編集は1タブに限定します。別タブへ移る場合は、先のタブを閉じて再読み込みしてください。
+
+承認はRun・予約version・公開版・正確な差分のdigestへ結び付けます。5分・1回限りで、期限切れ・変更・二重実行は拒否します。日付不明や追加依頼も自動的に安全と推測しません。
+
+通常の「承認して反映」は、内部の承認・反映検査を一つの画面操作で実行し、予約・Run・監査をまとめて保存します。以前「承認のみ」で保存したRunも消さず、期限内なら画面の「承認済みの変更を反映」で完了できます。期限切れなら破棄して変更案を作り直します。
+
+**これはクライアント内の合成データを扱うデモで、本番の認証・認可ではありません。** DevToolsや拡張による改変への防御、実ホテルへの接続、メール送信、マルチユーザー同期、無人バッチは実装していません。自由文の個人情報を完全に判別する機能でもないため、公開前に人が内容を確認します。
+
+## 検証
 
 ```sh
 bun run check
 bun run test:e2e
 ```
 
-## Security boundary
+単体テストは新旧両方を実行します。現エントリのE2Eは `tests/e2e/core-workflow.spec.ts` をdesktop/mobileで実行し、旧固定デモ向けのE2Eは参照用に保持しています。旧E2Eが現在の画面を通過したという意味ではありません。
 
-This client-only challenge prototype demonstrates deterministic policy enforcement, approval binding, optimistic version checks, expiry, and replay prevention. It is not a production authentication or authorization system. A production deployment would move durable authorization and sensitive hotel data behind an authenticated server boundary.
+E2Eは既定で4340番に専用サーバーを起動します。必要なら `TEACHBACK_E2E_URL` で変更できます。既存サーバーの再利用は `TEACHBACK_E2E_REUSE=1` を明示した場合のみです。
 
-## Brand assets
-
-- `public/brand-mark.svg` — standalone mark
-- `public/logo.svg` — horizontal wordmark
-- `public/favicon.svg` and `public/apple-touch-icon.png` — browser icons
-- `public/og.png` — 1200 × 630 social and video cover
-- `public/devpost-thumbnail.png` — 1200 × 800 Devpost thumbnail
-
-## Design
-
-The operator UI supports English and Japanese. It follows the browser language
-on first use and keeps an explicit `EN / 日本語` preference separately from demo
-state. Switching the UI never changes a prepared run or approval digest. WebMCP
-tool names, schemas, result codes, and JSON keys remain stable in English; exact
-guest-facing copy remains visible in its source language for approval.
-
-The UI keeps business status separate from system capability. Aiko and Sofia are handled cases; Emma and Daniel begin as unhandled cases. Whether a case has a reusable rule or can teach a new one appears only in the selected case's next action.
-
-Conditions remain visibly unevaluated until a preview is prepared. After approval, the page shows the absolute approval expiry in JST. Raw tool names and result codes are kept in the expandable WebMCP evidence inside the audit drawer, rather than the main operator workflow.
+人の操作をブラウザ自動化で通したQAと、実際の人が公開・承認した実演は区別します。利用者自身による記録・公開・承認は、WebMCPの反映ツールを外す前のローカル版で確認済みです。詳細と現在の契約の検証は[検証記録](docs/core-workflow-verification.md)を参照してください。
 
 ## License
 
