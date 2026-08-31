@@ -20,6 +20,7 @@ import { createInitialState } from "./fixtures";
 import { DemoSession } from "./DemoSession";
 import {
   approveCurrentRun,
+  approveAndCommitCurrentRun,
   discardCurrentRun,
   eligibilityReasons,
   expireApprovedRun,
@@ -56,6 +57,8 @@ import {
 import {
   demonstrationForReservation,
   deriveCaseQueueStatus,
+  filterReservations,
+  findNextReusableReservation,
   publishedPlaybookForDemonstration,
   reservationForDemonstration,
   type CaseQueueStatus,
@@ -78,12 +81,12 @@ import {
   valueLabel,
   type UiLocale,
 } from "./i18n";
+import { RecordedResponse, RegisteredRule, ReservationRequests } from "./CaseDetails";
+import { BoundaryEditor } from "./BoundaryEditor";
+import { persistSession, STORAGE_KEY, TEACHING_STORAGE_KEY, TEACHING_SCENARIO_VERSION_KEY, TEACHING_SCENARIO_VERSION } from "./persistence";
+import { ResetConfirmation } from "./ResetConfirmation";
 
-const STORAGE_KEY = "teachback-demo-v1";
 const LOCALE_STORAGE_KEY = "teachback-ui-locale-v1";
-const TEACHING_STORAGE_KEY = "teachback-teaching-v4";
-const TEACHING_SCENARIO_VERSION_KEY = "teachback-teaching-scenario-version";
-const TEACHING_SCENARIO_VERSION = "5";
 
 type WebMcpStatus = "checking" | "ready" | "unavailable" | "error";
 
@@ -446,7 +449,7 @@ function JourneySteps({
   stage: TeachingJourney["stage"];
 }) {
   const copy = copyFor(locale);
-  const activeIndex = stage === "demonstration" ? 0 : stage === "draft" ? 1 : 2;
+  const activeIndex = stage === "demonstration" ? 0 : 2;
   const steps = [
     copy.teachingSource,
     copy.agentStructured,
@@ -501,12 +504,7 @@ function TeachingWorkspace({
   const definition =
     PLAYBOOK_DEFINITIONS[playbookId] ?? LATE_ARRIVAL_PLAYBOOK;
   const isNight = playbookId === NIGHT_ARRIVAL_PLAYBOOK.id;
-  const actionLabels = isNight
-    ? copy.nightDemonstrationActionLabels
-    : copy.demonstrationActionLabels;
-  const fixedRuleLabels = isNight
-    ? copy.nightFixedRuleLabels.filter((_, index) => [0, 1, 6].includes(index))
-    : copy.fixedRuleLabels;
+  const actionCount = demonstration?.actions.length ?? 0;
 
   return (
     <>
@@ -526,28 +524,7 @@ function TeachingWorkspace({
               : reservation.arrivalDate}
           </strong>
         </div>
-        <section className="teaching-record" aria-labelledby="demonstration-heading">
-          <div className="teaching-record-heading">
-            <div>
-              <span>
-                {isNight
-                  ? copy.nightDemonstratedActionsDetail
-                  : copy.demonstratedActionsDetail}
-              </span>
-              <h2 id="demonstration-heading">{copy.demonstratedActions}</h2>
-            </div>
-            <strong>{reservation.id}</strong>
-          </div>
-          <p>{isNight ? copy.nightRecordedTeachingBody : copy.recordedTeachingBody}</p>
-          <ol>
-            {actionLabels.map((action, index) => (
-              <li key={action}>
-                <span>{index + 1}</span>
-                <strong>{action}</strong>
-              </li>
-            ))}
-          </ol>
-        </section>
+        {demonstration ? <RecordedResponse locale={locale} reservation={reservation} demonstration={demonstration} /> : null}
       </main>
       <aside className="review-panel teaching-rule-panel">
         <div className="teaching-rule-inner">
@@ -568,7 +545,7 @@ function TeachingWorkspace({
                 </div>
                 <div>
                   <dt>{copy.teachingActionCount}</dt>
-                  <dd>{actionLabels.length}{copy.teachingCountUnit}</dd>
+                  <dd>{actionCount}{copy.teachingCountUnit}</dd>
                 </div>
                 <div>
                   <dt>{copy.teachingRuleCount}</dt>
@@ -585,129 +562,7 @@ function TeachingWorkspace({
               <p>
                 {isNight ? copy.nightBoundaryReviewBody : copy.boundaryReviewBody}
               </p>
-              <div className="draft-rules-heading">
-                <strong>{copy.fixedSafeguards}</strong>
-                <span>{fixedRuleLabels.length}</span>
-              </div>
-              <ul className="fixed-rules">
-                {fixedRuleLabels.map((rule) => (
-                  <li key={rule}>
-                    <span>{rule}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="boundary-section-heading">
-                <strong>{copy.setBoundary}</strong>
-                <span>{copy.agentProposal}</span>
-              </div>
-              {!isNight ? <>
-              <div
-                className={`boundary-control${
-                  draft.boundary.latestArrivalLimit === "22:00" ? " is-safe" : " is-risky"
-                }`}
-              >
-                <label htmlFor="latest-arrival-boundary">{copy.latestArrivalRule}</label>
-                <select
-                  id="latest-arrival-boundary"
-                  value={draft.boundary.latestArrivalLimit}
-                  onChange={(event) =>
-                    onBoundaryChange({
-                      latestArrivalLimit: event.target.value as "22:00" | "23:00" | "23:59",
-                    })
-                  }
-                >
-                  <option value="23:00">23:00 · {copy.agentProposal}</option>
-                  <option value="23:59">23:59</option>
-                  <option value="22:00">22:00 · {copy.humanBoundary}</option>
-                </select>
-              </div>
-              <div
-                className={`boundary-control${
-                  draft.boundary.taxiHandling === "escalate" ? " is-safe" : " is-risky"
-                }`}
-              >
-                <label htmlFor="taxi-boundary">{copy.taxiRule}</label>
-                <select
-                  id="taxi-boundary"
-                  value={draft.boundary.taxiHandling}
-                  onChange={(event) =>
-                    onBoundaryChange({
-                      taxiHandling: event.target.value as "allow" | "escalate",
-                    })
-                  }
-                >
-                  <option value="allow">{copy.taxiAllow} · {copy.agentProposal}</option>
-                <option value="escalate">{copy.taxiEscalate} · {copy.humanBoundary}</option>
-              </select>
-              </div>
-              {(["dietaryHandling", "compensationHandling"] as const).map((field) =>
-                draft.boundary[field] !== definition.boundary[field] ? (
-                  <div className="boundary-control is-risky" key={field}>
-                    <label htmlFor={`late-${field}`}>{field === "dietaryHandling" ? copy.dietaryRule : copy.compensationRule}</label>
-                    <select id={`late-${field}`} value={draft.boundary[field]}
-                      onChange={(event) => onBoundaryChange({ [field]: event.target.value as "allow" | "escalate" })}>
-                      <option value="allow">{copy.handleInPlaybook}</option>
-                      <option value="escalate">{copy.taxiEscalate}</option>
-                    </select>
-                  </div>
-                ) : null,
-              )}
-              </> : (<>
-                <dl className="night-boundary-summary">
-                  <div>
-                    <dt><label htmlFor="night-arrival-boundary">{copy.latestArrivalRule}</label></dt>
-                    <dd>{draft.boundary.latestArrivalLimit === definition.boundary.latestArrivalLimit
-                      ? draft.boundary.latestArrivalLimit
-                      : <select id="night-arrival-boundary" value={draft.boundary.latestArrivalLimit}
-                          onChange={(event) => onBoundaryChange({ latestArrivalLimit: event.target.value as "22:00" | "23:00" | "23:59" })}>
-                          {["22:00", "23:00", "23:59"].map((time) => <option key={time} value={time}>{time}</option>)}
-                        </select>}
-                    </dd>
-                  </div>
-                  {(["dietaryHandling", "taxiHandling"] as const).map((field) => (
-                    <div key={field}>
-                      <dt><label htmlFor={`night-${field}`}>{field === "dietaryHandling" ? copy.dietaryRule : copy.taxiRule}</label></dt>
-                      <dd>{draft.boundary[field] === definition.boundary[field]
-                        ? copy.handleInPlaybook
-                        : <select id={`night-${field}`} value={draft.boundary[field]}
-                            onChange={(event) => onBoundaryChange({ [field]: event.target.value as "allow" | "escalate" })}>
-                            <option value="allow">{copy.handleInPlaybook}</option>
-                            <option value="escalate">{copy.taxiEscalate}</option>
-                          </select>}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-                <div
-                  className={`boundary-control${
-                    draft.boundary.compensationHandling === "escalate"
-                      ? " is-safe"
-                      : " is-risky"
-                  }`}
-                >
-                  <label htmlFor="compensation-boundary">
-                    {copy.compensationRule}
-                  </label>
-                  <select
-                    id="compensation-boundary"
-                    value={draft.boundary.compensationHandling}
-                    onChange={(event) =>
-                      onBoundaryChange({
-                        compensationHandling: event.target.value as
-                          | "allow"
-                          | "escalate",
-                      })
-                    }
-                  >
-                    <option value="allow">
-                      {copy.compensationAllow} · {copy.agentProposal}
-                    </option>
-                    <option value="escalate">
-                      {copy.compensationEscalate} · {copy.humanBoundary}
-                    </option>
-                  </select>
-                </div>
-              </>)}
+              <BoundaryEditor locale={locale} boundary={draft.boundary} definition={definition} onChange={onBoundaryChange} publishable={publishable} />
               <button
                 className="primary-action"
                 type="button"
@@ -716,13 +571,6 @@ function TeachingWorkspace({
               >
                 {copy.publishPlaybook}
               </button>
-              <p className={`publish-note${publishable ? " is-ready" : ""}`}>
-                {publishable
-                  ? copy.publishReady
-                  : isNight
-                    ? copy.boundaryCorrectionRequired
-                    : copy.publishBlocked}
-              </p>
             </div>
           ) : null}
           <button className="teaching-back" type="button" onClick={onBack}>
@@ -742,6 +590,8 @@ function CaseQueue({
   rejectionsByReservationId,
   demonstrations,
   publishedPlaybooks,
+  query,
+  onQueryChange,
   onSelect,
 }: {
   locale: UiLocale;
@@ -751,19 +601,13 @@ function CaseQueue({
   rejectionsByReservationId: AppState["rejectionsByReservationId"];
   demonstrations: Demonstration[];
   publishedPlaybooks: PublishedPlaybook[];
+  query: string;
+  onQueryChange(query: string): void;
   onSelect(id: string): void;
 }) {
   const copy = copyFor(locale);
   const listRef = useRef<HTMLUListElement>(null);
-  const [query, setQuery] = useState("");
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  const filteredReservations = normalizedQuery
-    ? reservations.filter((reservation) =>
-        `${reservation.id} ${reservation.guestDisplayName}`
-          .toLocaleLowerCase()
-          .includes(normalizedQuery),
-      )
-    : reservations;
+  const filteredReservations = filterReservations(reservations, query);
   const filteredReservationIds = filteredReservations
     .map((reservation) => reservation.id)
     .join("|");
@@ -892,7 +736,7 @@ function CaseQueue({
               type="search"
               value={query}
               placeholder={copy.caseSearchPlaceholder}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => onQueryChange(event.target.value)}
             />
           </label>
           <div className="case-pagination" aria-label={copy.cases}>
@@ -901,7 +745,7 @@ function CaseQueue({
               type="button"
               aria-label={copy.previousCases}
               aria-controls="case-list"
-              disabled={!railState.canScrollBack}
+              disabled={filteredReservations.length === 0 || !railState.canScrollBack}
               onClick={() => scrollCases(-1)}
             >
               <CaretLeftIcon />
@@ -912,7 +756,7 @@ function CaseQueue({
               type="button"
               aria-label={copy.nextCases}
               aria-controls="case-list"
-              disabled={!railState.canScrollForward}
+              disabled={filteredReservations.length === 0 || !railState.canScrollForward}
               onClick={() => scrollCases(1)}
             >
               <span>{copy.nextCasesShort}</span>
@@ -937,15 +781,20 @@ function CaseQueue({
             const labels: Record<CaseQueueStatus, string> = {
               unhandled: copy.caseUnhandled,
               awaiting_review: copy.caseAwaitingReview,
+              needs_human_review: copy.caseNeedsHumanReview,
+              awaiting_application: copy.caseAwaitingApplication,
+              approval_expired: copy.caseApprovalExpired,
               handled: copy.caseHandled,
             };
             const stateLabel = labels[status];
             const statusStateClass =
               status === "handled"
                 ? " has-handled-state"
-                : status === "awaiting_review"
-                  ? " has-awaiting-state"
-                  : "";
+                : status === "awaiting_application"
+                  ? " has-approved-state"
+                  : status === "awaiting_review" || status === "approval_expired" || status === "needs_human_review"
+                    ? " has-awaiting-state"
+                    : "";
             return (
               <li key={reservation.id}>
                 <button
@@ -977,19 +826,26 @@ function PlaybookFlow({
   locale,
   sourceReservation,
   playbook,
+  isSourceCase,
+  onViewSource,
 }: {
   locale: UiLocale;
   sourceReservation: Reservation | null;
   playbook: PublishedPlaybook | null;
+  isSourceCase: boolean;
+  onViewSource(): void;
 }) {
   const copy = copyFor(locale);
 
+  if (isSourceCase) {
+    return <dl className="source-status">
+      <div><dt>{copy.reservationResponse}</dt><dd className="is-handled">{copy.caseHandled}</dd></div>
+      <div><dt>{copy.ruleRegistration}</dt><dd>{playbook ? copy.ruleRegistered : copy.ruleNotCreated}</dd></div>
+    </dl>;
+  }
+
   if (!playbook || !sourceReservation) {
-    return (
-      <section className="playbook-flow is-unmatched" aria-label={copy.playbookFlow}>
-        <span>{copy.noMatchingPlaybook}</span>
-      </section>
-    );
+    return null;
   }
 
   const name =
@@ -1000,7 +856,9 @@ function PlaybookFlow({
   return (
     <section className="playbook-flow" aria-label={copy.playbookFlow}>
       <span>{copy.playbookOrigin}</span>
-      <strong>{sourceReservation.id}</strong>
+      <button type="button" className="source-link" onClick={onViewSource}>
+        {sourceReservation.guestDisplayName} <span>{sourceReservation.id}</span>
+      </button>
       <i aria-hidden="true">·</i>
       <strong lang={locale === "en" ? "en" : undefined}>{name}</strong>
       <small>{copy.playbookBoundarySummary}</small>
@@ -1018,7 +876,7 @@ function ReservationFacts({
   const copy = copyFor(locale);
 
   return (
-    <div className="reservation-facts" aria-label={copy.reservationSummary}>
+    <><div className="reservation-facts" aria-label={copy.reservationSummary}>
       <div>
         <span>{copy.plannedArrival}</span>
         <strong>{reservation.plannedArrivalTime}</strong>
@@ -1033,7 +891,7 @@ function ReservationFacts({
           {reservation.mealPlan === "dinner_included" ? copy.included : copy.none}
         </strong>
       </div>
-    </div>
+    </div><ReservationRequests locale={locale} reservation={reservation} /></>
   );
 }
 
@@ -1056,25 +914,6 @@ function EmptyWorkspace({
   );
 }
 
-function RecordedWorkspace({
-  locale,
-  canTeach,
-}: {
-  locale: UiLocale;
-  canTeach: boolean;
-}) {
-  const copy = copyFor(locale);
-
-  return (
-    <section className="recorded-workspace" aria-labelledby="recorded-heading">
-      <h2 id="recorded-heading">
-        {canTeach ? copy.unlearnedRecordedHeading : copy.recordedHeading}
-      </h2>
-      <p>{canTeach ? copy.unlearnedRecordedBody : copy.recordedBody}</p>
-    </section>
-  );
-}
-
 function ProposedChanges({
   locale,
   run,
@@ -1086,7 +925,7 @@ function ProposedChanges({
   const applied = run.status === "committed";
   return (
     <section className="changes-section" aria-labelledby="changes-heading">
-      <h2 id="changes-heading">{copy.proposedChanges}</h2>
+      <h2 id="changes-heading">{applied ? copy.appliedChanges : copy.proposedChanges}</h2>
       <dl className="changes-list">
         {run.proposedChanges.map((change) => (
           <div
@@ -1158,8 +997,9 @@ function ReservationWorkspace({
   locale,
   sourceReservation,
   playbook,
-  canTeach,
   isSourceCase,
+  demonstration,
+  onViewSource,
   reservation,
   run,
   rejectionReasons,
@@ -1167,8 +1007,9 @@ function ReservationWorkspace({
   locale: UiLocale;
   sourceReservation: Reservation | null;
   playbook: PublishedPlaybook | null;
-  canTeach: boolean;
   isSourceCase: boolean;
+  demonstration: Demonstration | null;
+  onViewSource(): void;
   reservation: Reservation;
   run: PreparedRun | null;
   rejectionReasons: string[] | null;
@@ -1196,10 +1037,12 @@ function ReservationWorkspace({
         locale={locale}
         sourceReservation={sourceReservation}
         playbook={playbook}
+        isSourceCase={isSourceCase}
+        onViewSource={onViewSource}
       />
       <ReservationFacts locale={locale} reservation={reservation} />
-      {isSourceCase ? (
-        <RecordedWorkspace locale={locale} canTeach={canTeach} />
+      {demonstration ? (
+        <RecordedResponse locale={locale} reservation={reservation} demonstration={demonstration} />
       ) : rejectionReasons ? (
         <RejectedResult locale={locale} />
       ) : run && run.status !== "discarded" ? (
@@ -1211,42 +1054,12 @@ function ReservationWorkspace({
   );
 }
 
-function WebMcpAvailability({
-  locale,
-  status,
-}: {
-  locale: UiLocale;
-  status: WebMcpStatus;
-}) {
-  const copy = copyFor(locale);
-  const label = {
-    checking: copy.webMcpChecking,
-    ready: copy.webMcpReady,
-    unavailable: copy.webMcpUnavailable,
-    error: copy.webMcpError,
-  }[status];
-
-  return (
-    <div
-      className="webmcp-availability"
-      role="status"
-      aria-atomic="true"
-    >
-      <div>
-        <strong>{label}</strong>
-      </div>
-    </div>
-  );
-}
-
 function ApprovalStatus({
   locale,
   run,
-  webMcpStatus,
 }: {
   locale: UiLocale;
   run: PreparedRun;
-  webMcpStatus: WebMcpStatus;
 }) {
   const copy = copyFor(locale);
   const expiresAt = run.approvalExpiresAt;
@@ -1260,13 +1073,10 @@ function ApprovalStatus({
   return (
     <section className="approval-status-card" aria-label={copy.approvedReady}>
       <div className="approval-status-title">
-        <CheckIcon className="approval-status-icon" />
         <div>
           <strong>{copy.approvedReady}</strong>
           <span>{copy.criteriaAllPassed}</span>
-          {webMcpStatus === "ready" ? null : (
-            <span>{copy.approvedWithoutWebMcp}</span>
-          )}
+          <span>{copy.approvedNextStep}</span>
         </div>
       </div>
       {validExpiry ? (
@@ -1310,17 +1120,38 @@ function ApprovalScope({
   );
 }
 
+function PendingCriteria({ locale, eligibility }: { locale: UiLocale; eligibility: readonly string[] }) {
+  const copy = copyFor(locale);
+  const [compact, setCompact] = useState(() => window.matchMedia("(max-width: 767px)").matches);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const sync = () => setCompact(media.matches);
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+  const list = <ul className="eligibility-list" id="approval-criteria">{eligibility.map(item => <li className="is-pending" key={item}><span>{item}</span><span className="criterion-status">{copy.criterionPending}</span></li>)}</ul>;
+  return compact ? <details className="pending-criteria"><summary>{copy.viewConditions}</summary>{list}</details> : list;
+}
+
 function ReviewPanel({
   locale,
   isSourceCase,
   canTeach,
+  playbook,
+  suggestedSource,
+  nextCase,
+  onSelectCase,
   playbookId,
   canCheck,
   webMcpStatus,
+  applying,
+  applyError,
+  focusCompletion,
   run,
   rejectionReasons,
   onPrepare,
   onApprove,
+  onApply,
   onDiscard,
   onAudit,
   onTeach,
@@ -1328,13 +1159,21 @@ function ReviewPanel({
   locale: UiLocale;
   isSourceCase: boolean;
   canTeach: boolean;
+  playbook: PublishedPlaybook | null;
+  suggestedSource: Reservation | null;
+  nextCase: Reservation | null;
+  onSelectCase(id: string): void;
   playbookId: PlaybookId | null;
   canCheck: boolean;
   webMcpStatus: WebMcpStatus;
+  applying: boolean;
+  applyError: string | null;
+  focusCompletion: boolean;
   run: PreparedRun | null;
   rejectionReasons: string[] | null;
   onPrepare(): void;
   onApprove(): void;
+  onApply(run: PreparedRun): void;
   onDiscard(): void;
   onAudit(event: ReactMouseEvent<HTMLButtonElement>): void;
   onTeach(): void;
@@ -1343,6 +1182,10 @@ function ReviewPanel({
   const isAwaiting = run?.status === "awaiting_review";
   const isApproved = run?.status === "approved";
   const isCommitted = run?.status === "committed";
+  const completionRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isCommitted && focusCompletion) completionRef.current?.focus();
+  }, [isCommitted, focusCompletion]);
   const isStale = run?.status === "stale";
   const isDiscarded = run?.status === "discarded";
   const isRejected = Boolean(rejectionReasons);
@@ -1358,7 +1201,7 @@ function ReviewPanel({
       ? copy.playbookFlow
       : isSourceCase || !playbookId
         ? copy.nextAction
-        : copy.review;
+        : isAwaiting || isApproved || isCommitted ? copy.reviewAndApply : copy.review;
   rejectionReasons?.forEach((reason) => {
     const index = reason.startsWith("Arrival is later than ")
       ? 3
@@ -1370,7 +1213,7 @@ function ReviewPanel({
     <aside className="review-panel" aria-labelledby="review-heading">
       <div className="review-heading-row">
         <h2 id="review-heading">{reviewHeading}</h2>
-        {!isSourceCase && playbookId && !showCriteriaSummary ? (
+        {!isSourceCase && playbookId && !showCriteriaSummary && !isAwaiting ? (
           <span
             className={`criteria-state${
               isRejected
@@ -1388,22 +1231,20 @@ function ReviewPanel({
           </span>
         ) : null}
       </div>
-      {!playbookId || webMcpStatus === "ready" || isApproved ? null : (
-        <WebMcpAvailability locale={locale} status={webMcpStatus} />
-      )}
       {isSourceCase ? (
         <div className="source-case-note">
-          <p>{canTeach ? copy.unlearnedSourceCaseBody : copy.sourceCaseBody}</p>
+          {playbook ? <RegisteredRule locale={locale} playbook={playbook} /> : null}
+          <p>{canTeach ? copy.sourceReadyHelp : copy.sourcePublishedHelp}</p>
           {canTeach ? (
             <button className="primary-action" type="button" onClick={onTeach}>
               {copy.teachThisCase}
             </button>
-          ) : null}
+          ) : nextCase ? <button type="button" className="primary-action" onClick={() => onSelectCase(nextCase.id)}>{copy.tryMatchingCase}<span className="action-target">{nextCase.guestDisplayName}</span></button> : null}
         </div>
       ) : !playbookId ? (
         <div className="source-case-note">
-          <strong>{copy.unmatchedHeading}</strong>
-          <p>{copy.unmatchedBody}</p>
+          <p>{copy.noMatchingRuleHelp}</p>
+          {suggestedSource ? <button type="button" className="primary-action" onClick={() => onSelectCase(suggestedSource.id)}>{copy.inspectRecordedCase}<span className="action-target">{suggestedSource.guestDisplayName}</span></button> : null}
           {canCheck ? <button className="primary-action" type="button" onClick={onPrepare}>{copy.checkConditions}</button> : null}
         </div>
       ) : isRejected ? (
@@ -1429,51 +1270,62 @@ function ReviewPanel({
               {rejectionReasons?.map((reason) => <p key={reason}>{systemMessageLabel(locale, reason)}</p>)}
             </div>
           </div>
+          <p className="manual-endpoint">{copy.manualEndpoint}</p>
         </>
       ) : showCriteriaSummary ? (
         isApproved || isCommitted ? null : (
           <div className={`criteria-complete-summary${isStale ? " is-stale" : ""}`}>
-            <strong>{copy.criteriaAllPassed}</strong>
+            <strong>{copy.criteriaPreviouslyPassed}</strong>
           </div>
         )
+      ) : isAwaiting ? (
+        <details className="checked-criteria">
+          <summary id="approval-criteria">{copy.criteriaPassed}</summary>
+          <ul className="eligibility-list">
+            {eligibility.map(item => (
+              <li className="is-passed" key={item}>
+                <span>{item}</span>
+                <span className="criterion-status">{copy.criterionPassed}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
       ) : (
-        <ul className="eligibility-list" id="approval-criteria">
-          {eligibility.map((item) => (
-            <li className={criteriaPassed ? "is-passed" : "is-pending"} key={item}>
-              <span>{item}</span>
-              <span className="criterion-status">
-                {criteriaPassed ? copy.criterionPassed : copy.criterionPending}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <PendingCriteria locale={locale} eligibility={eligibility} />
       )}
       {isAwaiting && run ? <ApprovalScope locale={locale} run={run} /> : null}
-      <div className="review-actions">
-        {isRejected && canCheck ? <button className="primary-action" type="button" onClick={onPrepare}>{copy.checkConditions}</button> : null}
+      <div className="review-actions" aria-busy={applying}>
+        {applyError ? (
+          <div className="application-error" role="alert">
+            <p>{copy.applyFailed}</p>
+            <p>{systemMessageLabel(locale, applyError)}</p>
+            <button type="button" className="text-button" disabled={applying} onClick={onPrepare}>
+              {copy.prepareAgain}
+            </button>
+          </div>
+        ) : null}
+        {isRejected && suggestedSource ? <button className="primary-action" type="button" onClick={() => onSelectCase(suggestedSource.id)}>{copy.inspectRecordedCase}<span className="action-target">{suggestedSource.guestDisplayName}</span></button> : isRejected && nextCase ? <button className="primary-action" type="button" onClick={() => onSelectCase(nextCase.id)}>{copy.tryAnotherCase}<span className="action-target">{nextCase.guestDisplayName}</span></button> : null}
         {!isSourceCase && playbookId && !isRejected ? (
           <>
             {(!run || isDiscarded) ? (
               <button className="primary-action" type="button" onClick={onPrepare}>
                 {copy.preparePreview}
               </button>
-            ) : isAwaiting ? (
-              <button
-                className="primary-action"
-                type="button"
-                onClick={onApprove}
-                aria-describedby="approval-criteria changes-heading"
-              >
-                {copy.approvePreview}
-              </button>
-            ) : isApproved && run ? (
-              <ApprovalStatus
-                locale={locale}
-                run={run}
-                webMcpStatus={webMcpStatus}
-              />
+            ) : (isAwaiting || isApproved) && run ? (
+              <>
+                {isApproved ? <ApprovalStatus locale={locale} run={run} /> : null}
+                <button
+                  className="primary-action"
+                  type="button"
+                  onClick={() => onApply(run)}
+                  disabled={applying}
+                  aria-describedby={isAwaiting ? "approval-criteria changes-heading" : "changes-heading"}
+                >
+                  {applying ? copy.applying : isApproved ? copy.applyApproved : copy.approveAndApply}
+                </button>
+              </>
             ) : isCommitted ? (
-              <div className="completion-status">
+              <div className="completion-status" role="status" tabIndex={-1} ref={completionRef}>
                 <CheckIcon className="approval-status-icon" />
                 <div>
                   <strong>{copy.committed}</strong>
@@ -1497,9 +1349,20 @@ function ReviewPanel({
                 className="secondary-action"
                 type="button"
                 onClick={onDiscard}
+                disabled={applying}
               >
                 {copy.discard}
               </button>
+            ) : null}
+            {isAwaiting ? (
+              <details className="agent-approval-options">
+                <summary>{copy.agentApprovalOptions}</summary>
+                <p>{copy.agentApprovalHelp}</p>
+                {webMcpStatus !== "ready" ? <p>{copy.approvedWithoutWebMcp}</p> : null}
+                <button className="text-button" type="button" onClick={onApprove} disabled={applying}>
+                  {copy.approvePreview}
+                </button>
+              </details>
             ) : null}
           </>
         ) : null}
@@ -1617,6 +1480,7 @@ function AuditDrawer({
           </button>
         </div>
         <p className="audit-evidence">{copy.auditEvidence}</p>
+        <p className="audit-provenance">{copy.auditProvenance}</p>
         <details className="webmcp-evidence">
           <summary>
             <span>{webMcpConnectionLabel}</span>
@@ -1690,6 +1554,18 @@ function TeachbackApp() {
   const [lastWebMcpCall, setLastWebMcpCall] =
     useState<WebMcpCall | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const queryRef = useRef("");
+  const [resetOpen, setResetOpen] = useState(false);
+  const [storageFailure, setStorageFailure] = useState<"save" | "reset" | "partial" | null>(null);
+  const [publishedNotice, setPublishedNotice] = useState<{ source: Reservation; target: Reservation | null } | null>(null);
+  const applyingRef = useRef(false);
+  const [applying, setApplying] = useState(false);
+  const [applyFeedback, setApplyFeedback] = useState<{
+    runId: string;
+    error: string | null;
+    completed: boolean;
+  } | null>(null);
   const appContentRef = useRef<HTMLDivElement>(null);
   const auditTriggerRef = useRef<HTMLButtonElement>(null);
 
@@ -1727,40 +1603,22 @@ function TeachbackApp() {
     setLastWebMcpCall(call);
   }, []);
 
-  useEffect(() => {
-    stateRef.current = state;
+  const isCurrentCaseVisible = useCallback(() => journeyRef.current.stage === "reuse" && filterReservations(stateRef.current.reservations, queryRef.current).some(item => item.id === stateRef.current.selectedReservationId), []);
+
+  const saveSession = useCallback((nextState: AppState, nextJourney: TeachingJourney) => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      const result = persistSession(localStorage, nextState, nextJourney);
+      setStorageFailure(result.ok ? null : result.partialWrite ? "partial" : "save");
+      return result.ok;
     } catch {
-      // Persistence is optional; keep the in-memory demo usable when storage fails.
+      setStorageFailure("save");
+      return false;
     }
-  }, [state]);
+  }, []);
 
   useEffect(() => {
-    try {
-      if (
-        localStorage.getItem(TEACHING_SCENARIO_VERSION_KEY) !==
-        TEACHING_SCENARIO_VERSION
-      ) {
-        const initialJourney = createPublishedJourney();
-        journeyRef.current = initialJourney;
-        localStorage.setItem(
-          TEACHING_SCENARIO_VERSION_KEY,
-          TEACHING_SCENARIO_VERSION,
-        );
-        localStorage.setItem(
-          TEACHING_STORAGE_KEY,
-          JSON.stringify(initialJourney),
-        );
-        setJourney(initialJourney);
-        return;
-      }
-      journeyRef.current = journey;
-      localStorage.setItem(TEACHING_STORAGE_KEY, JSON.stringify(journey));
-    } catch {
-      // Persistence is optional; the teaching journey remains usable in memory.
-    }
-  }, [journey]);
+    saveSession(state, journey);
+  }, [state, journey, saveSession]);
 
   useEffect(() => {
     localeRef.current = locale;
@@ -1787,6 +1645,7 @@ function TeachbackApp() {
       getTeachingJourney: () => journeyRef.current,
       commitTeachingJourney,
       reportWebMcpCall,
+      isCurrentCaseVisible,
     })
       .then((registeredController) => {
         if (cancelled) {
@@ -1805,7 +1664,7 @@ function TeachbackApp() {
       cancelled = true;
       controller?.abort();
     };
-  }, [commitState, commitTeachingJourney, reportWebMcpCall]);
+  }, [commitState, commitTeachingJourney, reportWebMcpCall, isCurrentCaseVisible]);
 
   // Expiry is independent of which case is visible. Schedule the nearest deadline.
   const approvalExpiresAt = Math.min(
@@ -1894,6 +1753,8 @@ function TeachbackApp() {
       : reservation;
 
   const prepare = useCallback(async () => {
+    if (applyingRef.current || !isCurrentCaseVisible()) return;
+    setApplyFeedback(null);
     const sourceState = stateRef.current;
     const playbook = playbookForPreparation(
       selectedReservation(sourceState),
@@ -1908,8 +1769,8 @@ function TeachbackApp() {
       );
       return;
     }
-    const prepared = await prepareCurrentRun(sourceState, new Date(), playbook);
-    if (!commitState(sourceState, prepared.state, prepared.result.summary)) {
+    const prepared = await prepareCurrentRun(sourceState, new Date(), playbook, "Website");
+    if (!isCurrentCaseVisible() || !commitState(sourceState, prepared.state, prepared.result.summary)) {
       setAnnouncement(
         systemMessageLabel(
           localeRef.current,
@@ -1917,30 +1778,69 @@ function TeachbackApp() {
         ),
       );
     }
-  }, [commitState]);
+  }, [commitState, isCurrentCaseVisible]);
 
   const approve = useCallback(() => {
+    if (applyingRef.current) return;
     const approved = approveCurrentRun(stateRef.current);
     replaceState(approved.state, approved.result.summary);
   }, [replaceState]);
 
+  const apply = useCallback(async (displayedRun: PreparedRun) => {
+    if (applyingRef.current || !isCurrentCaseVisible()) return;
+    applyingRef.current = true;
+    setApplying(true);
+    setApplyFeedback(null);
+    const sourceState = stateRef.current;
+    const sourceJourney = journeyRef.current;
+    try {
+      const applied = await approveAndCommitCurrentRun(
+        sourceState,
+        { runId: displayedRun.id, expectedDigest: displayedRun.digest },
+        sourceJourney.stage === "reuse" ? sourceJourney.publishedPlaybooks : [],
+      );
+      // Do not overwrite a reset, case switch, expiry, or concurrent agent action.
+      if (!isCurrentCaseVisible() || journeyRef.current !== sourceJourney || !commitState(sourceState, applied.state, applied.result.summary)) {
+        const currentRun = runForReservation(stateRef.current);
+        if (currentRun?.id === displayedRun.id && currentRun.status === "committed") {
+          setApplyFeedback(null);
+        } else {
+          setApplyFeedback({ runId: displayedRun.id, completed: false, error: "The case changed while the approved run was being committed." });
+        }
+        return;
+      }
+      setApplyFeedback({ runId: displayedRun.id, completed: applied.result.ok, error: applied.result.ok ? null : applied.result.summary });
+    } catch {
+      setApplyFeedback({ runId: displayedRun.id, completed: false, error: "No changes have been applied." });
+    } finally {
+      applyingRef.current = false;
+      setApplying(false);
+    }
+  }, [commitState, isCurrentCaseVisible]);
+
   const discard = useCallback(() => {
+    if (applyingRef.current) return;
+    setApplyFeedback(null);
     replaceState(discardCurrentRun(stateRef.current), "Preview discarded.");
   }, [replaceState]);
 
   const reset = useCallback(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(TEACHING_STORAGE_KEY);
-    } catch {
-      // The in-memory reset still works when storage is unavailable.
-    }
-    replaceState(resetDemo(), "Demo reset.");
+    const initial = resetDemo();
     const published = createPublishedJourney();
+    setResetOpen(false);
+    if (!saveSession(initial, published)) {
+      setStorageFailure(current => current === "partial" ? "partial" : "reset");
+      return;
+    }
+    setApplyFeedback(null);
+    setPublishedNotice(null);
+    queryRef.current = "";
+    setQuery("");
+    replaceState(initial, "Demo reset.");
     journeyRef.current = published;
     setJourney(published);
     setLastWebMcpCall(null);
-  }, [replaceState]);
+  }, [replaceState, saveSession]);
 
   const createDraft = useCallback(() => {
     const source = journeyRef.current;
@@ -1949,7 +1849,7 @@ function TeachbackApp() {
       ? PLAYBOOK_DEFINITIONS[demonstration.playbookId]?.agentDraftBoundary ??
         AGENT_DRAFT_BOUNDARY
       : AGENT_DRAFT_BOUNDARY;
-    const drafted = draftPlaybook(source, boundary);
+    const drafted = draftPlaybook(source, boundary, new Date(), "Website");
     commitTeachingJourney(source, drafted.state, drafted.result.summary);
   }, [commitTeachingJourney]);
 
@@ -2025,6 +1925,10 @@ function TeachbackApp() {
           return matchesNewRule && !matchedBefore;
         })
       : null;
+    const sourceReservation = reservationForDemonstration(stateRef.current.reservations, newlyPublished?.sourceDemonstrationId ?? "", source.demonstrations);
+    if (sourceReservation) setPublishedNotice({ source: sourceReservation, target: nextReservation ?? null });
+    queryRef.current = "";
+    setQuery("");
     enterReuse(
       published.state,
       published.result.summary,
@@ -2079,6 +1983,7 @@ function TeachbackApp() {
 
   const select = useCallback(
     (reservationId: string) => {
+      setPublishedNotice(null);
       replaceState(
         selectReservation(stateRef.current, reservationId),
         `Selected reservation ${reservationId}.`,
@@ -2086,6 +1991,30 @@ function TeachbackApp() {
     },
     [replaceState],
   );
+
+  const selectCaseFromAction = (id: string) => {
+    queryRef.current = "";
+    setQuery("");
+    setPublishedNotice(null);
+    select(id);
+  };
+  const changeQuery = (value: string) => {
+    queryRef.current = value;
+    setQuery(value);
+    setPublishedNotice(null);
+  };
+  const displayedReservationId = journey.stage === "reuse" ? reservation.id : teachingReservation.id;
+  const selectedCaseVisible = filterReservations(state.reservations, query).some(item => item.id === displayedReservationId);
+  const nextCase = findNextReusableReservation({
+    reservations: state.reservations,
+    currentReservationId: reservation.id,
+    runsByReservationId: state.runsByReservationId,
+    demonstrations: journey.demonstrations,
+    publishedPlaybooks: journey.publishedPlaybooks,
+    sourcePlaybookId: isSourceCase ? visiblePlaybook?.id : null,
+  });
+  const suggestedDemonstration = journey.demonstrations.find(item => !journey.publishedPlaybooks.some(rule => rule.sourceDemonstrationId === item.id) && PLAYBOOK_DEFINITIONS[item.playbookId] && eligibilityReasons(reservation, PLAYBOOK_DEFINITIONS[item.playbookId].boundary).length === 0);
+  const suggestedSource = suggestedDemonstration ? reservationForDemonstration(state.reservations, suggestedDemonstration.id, journey.demonstrations) : null;
 
   const openAudit = useCallback(
     (event: ReactMouseEvent<HTMLButtonElement>) => {
@@ -2108,11 +2037,17 @@ function TeachbackApp() {
         <AppHeader
           locale={locale}
           onLocaleChange={changeLocale}
-          onReset={reset}
+          onReset={() => setResetOpen(true)}
         />
         <div className="product-context-row">
           <DemoIntro locale={locale} />
         </div>
+        {storageFailure ? <div className="storage-warning" role="alert"><p>{storageFailure === "reset" ? copyFor(locale).resetFailed : storageFailure === "partial" ? copyFor(locale).storagePartialWarning : copyFor(locale).storageWarning}</p><button type="button" className="text-button" onClick={() => saveSession(stateRef.current, journeyRef.current)}>{copyFor(locale).storageRetry}</button></div> : null}
+        {publishedNotice ? <section className="publish-notice" role="status">
+          <div><strong>{copyFor(locale).rulePublishedNotice} {publishedNotice.source.guestDisplayName}</strong>{publishedNotice.target ? <p>{copyFor(locale).reuseTargetNotice} {publishedNotice.target.guestDisplayName}</p> : null}</div>
+          <button type="button" className="text-button" onClick={() => selectCaseFromAction(publishedNotice.source.id)}>{copyFor(locale).viewSource}</button>
+          <button type="button" className="icon-button" aria-label={copyFor(locale).dismissNotice} onClick={() => setPublishedNotice(null)}><CloseIcon /></button>
+        </section> : null}
         <div className={`app-grid${journey.stage === "reuse" ? "" : " is-teaching"}`}>
           <CaseQueue
             locale={locale}
@@ -2126,16 +2061,19 @@ function TeachbackApp() {
             rejectionsByReservationId={state.rejectionsByReservationId}
             demonstrations={journey.demonstrations}
             publishedPlaybooks={journey.publishedPlaybooks}
+            query={query}
+            onQueryChange={changeQuery}
             onSelect={journey.stage === "reuse" ? select : selectWhileTeaching}
           />
-          {journey.stage === "reuse" ? (
+          {!selectedCaseVisible ? <main className="search-empty-workspace"><h1>{copyFor(locale).noMatchingCases}</h1><p>{copyFor(locale).emptySearchHelp}</p><button type="button" className="text-button" onClick={() => changeQuery("")}>{copyFor(locale).clearSearch}</button></main> : journey.stage === "reuse" ? (
             <>
               <ReservationWorkspace
                 locale={locale}
                 sourceReservation={sourceReservation}
                 playbook={visiblePlaybook}
-                canTeach={canTeach}
                 isSourceCase={isSourceCase}
+                demonstration={sourceDemonstration}
+                onViewSource={() => sourceReservation && selectCaseFromAction(sourceReservation.id)}
                 reservation={reservation}
                 run={visibleRun}
                 rejectionReasons={rejectionReasons}
@@ -2144,13 +2082,21 @@ function TeachbackApp() {
                 locale={locale}
                 isSourceCase={isSourceCase}
                 canTeach={canTeach}
+                playbook={visiblePlaybook}
+                suggestedSource={suggestedSource}
+                nextCase={nextCase}
+                onSelectCase={selectCaseFromAction}
                 playbookId={visiblePlaybook?.id ?? null}
                 canCheck={journey.publishedPlaybooks.length > 0}
                 webMcpStatus={webMcpStatus}
+                applying={applying}
+                applyError={applyFeedback?.runId === visibleRun?.id ? applyFeedback?.error ?? null : null}
+                focusCompletion={applyFeedback?.runId === visibleRun?.id && Boolean(applyFeedback?.completed)}
                 run={visibleRun}
                 rejectionReasons={rejectionReasons}
                 onPrepare={prepare}
                 onApprove={approve}
+                onApply={apply}
                 onDiscard={discard}
                 onAudit={openAudit}
                 onTeach={teachCurrentPattern}
@@ -2182,6 +2128,7 @@ function TeachbackApp() {
         backgroundRef={appContentRef}
         returnFocusRef={auditTriggerRef}
       />
+      <ResetConfirmation locale={locale} open={resetOpen} onCancel={() => setResetOpen(false)} onConfirm={reset} />
     </div>
   );
 }

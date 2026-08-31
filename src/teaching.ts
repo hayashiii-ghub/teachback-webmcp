@@ -222,6 +222,7 @@ export function draftPlaybook(
   journey: TeachingJourney,
   boundary: PlaybookBoundary,
   now = new Date(),
+  actor: "Agent" | "Website" = "Agent",
 ): { state: TeachingJourney; result: ToolResult } {
   const demonstration = activeDemonstration(journey);
   const playbookId = demonstration?.playbookId;
@@ -264,7 +265,7 @@ export function draftPlaybook(
       activity: [
         ...journey.activity,
         activity(
-          "Agent",
+          actor,
           `Drafted ${draft.ruleCount} rules from ${demonstration.reservationId} as ${draft.id}.`,
           now,
         ),
@@ -273,7 +274,9 @@ export function draftPlaybook(
     result: {
       ok: true,
       code: "PLAYBOOK_DRAFTED",
-      summary: `The agent drafted ${draft.ruleCount} rules. Human boundary review is required.`,
+      summary: actor === "Agent"
+        ? `The agent drafted ${draft.ruleCount} rules. Human boundary review is required.`
+        : `The website created a draft of ${draft.ruleCount} rules. Human boundary review is required.`,
       data: {
         draft_id: draft.id,
         playbook_id: draft.playbookId,
@@ -439,7 +442,7 @@ export function publishPlaybook(
 
 export function createPublishedJourney(now = new Date()): TeachingJourney {
   const initial = createTeachingJourney();
-  const drafted = draftPlaybook(initial, AGENT_DRAFT_BOUNDARY, now).state;
+  const drafted = draftPlaybook(initial, AGENT_DRAFT_BOUNDARY, now, "Website").state;
   const bounded = updateDraftBoundary(
     drafted,
     { latestArrivalLimit: "22:00", taxiHandling: "escalate" },

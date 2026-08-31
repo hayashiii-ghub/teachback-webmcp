@@ -11,12 +11,13 @@ import {
 } from "./teaching";
 import { createWebMcpTools } from "./webmcp";
 
-function harness(initialJourney = createPublishedJourney()) {
+function harness(initialJourney = createPublishedJourney(), isCurrentCaseVisible?: () => boolean) {
   let state = createInitialState();
   let journey = initialJourney;
   const calls: Array<{ name: string; code: string }> = [];
   const tools = createWebMcpTools({
     getState: () => state,
+    isCurrentCaseVisible,
     commitState: (expectedState: AppState, nextState: AppState) => {
       if (state !== expectedState) return false;
       state = nextState;
@@ -44,6 +45,61 @@ function harness(initialJourney = createPublishedJourney()) {
 }
 
 describe("WebMCP tool adapter", () => {
+  it.each([
+    "teachback_get_current_case",
+    "teachback_prepare_current",
+    "teachback_commit_approved",
+  ])("does not expose or change the previous case when it is no longer visible: %s", async (toolName) => {
+    let visible = true;
+    const h = harness(createPublishedJourney(), () => visible);
+    const prepared = JSON.parse(await h.tools.find(tool => tool.name === "teachback_prepare_current")!.execute({}));
+    h.setState(approveCurrentRun(h.getState()).state);
+    const state = h.getState();
+    const journey = h.getJourney();
+    visible = false;
+    const result = JSON.parse(await h.tools.find(tool => tool.name === toolName)!.execute({
+      run_id: prepared.data.run_id,
+      expected_digest: prepared.data.digest,
+    }));
+    expect(result).toMatchObject({ ok: false, code: "CASE_NOT_VISIBLE" });
+    expect(result.data).toBeUndefined();
+    expect(h.getState()).toBe(state);
+    expect(h.getJourney()).toBe(journey);
+    expect(h.calls.at(-1)).toEqual({ name: toolName, code: "CASE_NOT_VISIBLE" });
+    visible = true;
+    expect(JSON.parse(await h.tools.find(tool => tool.name === "teachback_get_current_case")!.execute({})).code).toBe("CURRENT_CASE");
+  });
+
+  it.each(["teachback_prepare_current", "teachback_commit_approved"])("rechecks case visibility after asynchronous verification: %s", async (toolName) => {
+    let visible = true;
+    const h = harness(createPublishedJourney(), () => visible);
+    const prepare = h.tools.find(tool => tool.name === "teachback_prepare_current")!;
+    const prepared = JSON.parse(await prepare.execute({}));
+    h.setState(approveCurrentRun(h.getState()).state);
+    const state = h.getState();
+    const pending = h.tools.find(tool => tool.name === toolName)!.execute({
+      run_id: prepared.data.run_id,
+      expected_digest: prepared.data.digest,
+    });
+    visible = false;
+    const result = JSON.parse(await pending);
+    expect(result.code).toBe("CASE_NOT_VISIBLE");
+    expect(h.getState()).toBe(state);
+    expect(runForReservation(h.getState())?.status).toBe("approved");
+  });
+
+  it("keeps teaching tools available while the reservation workspace is hidden", async () => {
+    const h = harness(createTeachingJourney(), () => false);
+    const demonstration = JSON.parse(await h.tools.find(tool => tool.name === "teachback_get_latest_demonstration")!.execute({}));
+    expect(demonstration.code).toBe("DEMONSTRATION_FOUND");
+    const drafted = JSON.parse(await h.tools.find(tool => tool.name === "teachback_submit_playbook_draft")!.execute({
+      latest_arrival_limit: "23:00",
+      taxi_handling: "allow",
+    }));
+    expect(drafted.code).toBe("PLAYBOOK_DRAFTED");
+    expect(h.getJourney().stage).toBe("draft");
+  });
+
   it("refuses an unsafe case against a published rule with reasons and audit", async () => {
     const h = harness();
     h.setState(selectReservation(h.getState(), "R-2060"));
@@ -100,6 +156,7 @@ describe("WebMCP tool adapter", () => {
       untrustedContentHint: true,
     });
     expect(drafted.code).toBe("PLAYBOOK_DRAFTED");
+    expect(testHarness.getJourney().activity.at(-1)?.actor).toBe("Agent");
     expect(testHarness.getJourney().stage).toBe("draft");
     expect(testHarness.getJourney().publishedPlaybooks).toHaveLength(0);
     expect(blockedPreparation.code).toBe("PLAYBOOK_NOT_PUBLISHED");
@@ -118,6 +175,7 @@ describe("WebMCP tool adapter", () => {
     const prepared = JSON.parse(await prepareTool.execute({}));
 
     expect(current.code).toBe("CURRENT_CASE");
+    expect(testHarness.getState().audit.at(-1)?.actor).toBe("Agent");
     expect(prepared.code).toBe("RUN_PREPARED");
     expect(runForReservation(testHarness.getState())?.status).toBe("awaiting_review");
     expect(testHarness.calls).toEqual([

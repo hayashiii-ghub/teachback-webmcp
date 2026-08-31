@@ -27,11 +27,12 @@ describe("Teachback UI localization", () => {
     expect(copy.caseHandled).toBe("対応済み");
     expect(copy.nextAction).toBe("次の操作");
     expect(copy.criteriaPending).toBe("未判定");
-    expect(copy.webMcpReady).toBe("反映できます");
+    expect(copy.webMcpReady).toBe("サイトツール登録済み");
     expect(copy.approvalValidUntil).toBe("有効期限");
     expect(copy.approvalExactOnly).toBe("この変更案を1回だけ反映できます。");
     expect(copy.teachingPanelHeading).toBe("対応ルールを作る");
-    expect(copy.demonstrationActionLabels).toHaveLength(4);
+    expect(copy.ruleNotCreated).toBe("未作成");
+    expect(copy.ruleRegistered).toBe("登録済み");
   });
 
   it("keeps exact guest-facing and handoff content unchanged", () => {
@@ -76,8 +77,19 @@ describe("Teachback UI localization", () => {
     expect(systemMessageLabel("ja", "Selected reservation R-2052.")).toBe(
       "予約 R-2052 を選択しました。",
     );
+    expect(systemMessageLabel("ja", "Selected R-2050 as a teaching source.")).toBe("予約 R-2050 の対応からルールを作成します。");
+    expect(systemMessageLabel("ja", "Returned to reservation details.")).toBe("予約詳細に戻りました。");
     expect(systemMessageLabel("ja", "Unknown diagnostic")).toBe(
       "Unknown diagnostic",
     );
+  });
+
+  it("distinguishes local website generation and translates all boundary changes", () => {
+    expect(actorLabel("ja", "Website")).toBe("サイト");
+    expect(actorLabel("ja", "Agent")).toBe("エージェント");
+    expect(auditSummaryLabel("ja", "Changed compensation handling from allow to escalate.")).toBe("補償依頼を担当者判断へ変更しました。");
+    expect(auditSummaryLabel("ja", "Changed dietary handling from escalate to allow.")).toBe("食事制限の依頼をルール内での処理へ変更しました。");
+    expect(systemMessageLabel("ja", "Human approval is required.")).toBe("この変更案を担当者が承認する必要があります。");
+    expect(systemMessageLabel("ja", "Select a visible reservation before reading or changing a case.")).toContain("検索結果から予約を選んで");
   });
 });

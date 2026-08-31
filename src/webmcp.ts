@@ -1,10 +1,9 @@
 import type { AppState, PlaybookBoundary, ToolResult } from "./domain";
 import {
-  commitApprovedRun,
+  commitPublishedRun,
   currentCaseResult,
   playbookForPreparation,
   prepareCurrentRun,
-  runForReservation,
   selectedReservation,
 } from "./application";
 import {
@@ -17,6 +16,7 @@ import {
 
 export interface TeachbackService {
   getState(): AppState;
+  isCurrentCaseVisible?(): boolean;
   commitState(
     expectedState: AppState,
     nextState: AppState,
@@ -43,6 +43,12 @@ function response(result: ToolResult): string {
 }
 
 export function createWebMcpTools(service: TeachbackService): ModelContextTool[] {
+  const isCurrentCaseVisible = () => service.isCurrentCaseVisible?.() ?? true;
+  const caseNotVisible = () => response({
+    ok: false,
+    code: "CASE_NOT_VISIBLE",
+    summary: "Select a visible reservation before reading or changing a case.",
+  });
   const tools: ModelContextTool[] = [
     {
       name: "teachback_get_latest_demonstration",
@@ -213,6 +219,7 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       execute: (_input, options) => {
         options?.signal?.throwIfAborted();
+        if (!isCurrentCaseVisible()) return caseNotVisible();
         return response(currentCaseResult(service.getState()));
       },
     },
@@ -229,6 +236,7 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
       annotations: { readOnlyHint: false, untrustedContentHint: false },
       execute: async (_input, options) => {
         options?.signal?.throwIfAborted();
+        if (!isCurrentCaseVisible()) return caseNotVisible();
         const teaching = service.getTeachingJourney();
         if (teaching.stage !== "reuse" || teaching.publishedPlaybooks.length === 0) {
           return response({
@@ -255,6 +263,7 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
           playbook,
         );
         options?.signal?.throwIfAborted();
+        if (!isCurrentCaseVisible()) return caseNotVisible();
         if (
           !service.commitState(
             sourceState,
@@ -296,6 +305,7 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
       annotations: { readOnlyHint: false, untrustedContentHint: false },
       execute: async (input, options) => {
         options?.signal?.throwIfAborted();
+        if (!isCurrentCaseVisible()) return caseNotVisible();
         const candidate = input as {
           run_id?: unknown;
           expected_digest?: unknown;
@@ -319,31 +329,14 @@ export function createWebMcpTools(service: TeachbackService): ModelContextTool[]
           });
         }
         const sourceState = service.getState();
-        const run = runForReservation(sourceState);
-        const activePlaybook = run
-          ? teaching.publishedPlaybooks.find(
-              (playbook) => playbook.id === run.playbookId,
-            )
-          : null;
-        if (
-          run &&
-          (!activePlaybook ||
-          JSON.stringify(run.playbookBoundary) !==
-            JSON.stringify(activePlaybook.boundary))
-        ) {
-          return response({
-            ok: false,
-            code: "PUBLISHED_BOUNDARY_CHANGED",
-            summary: "The published playbook boundary changed after preparation.",
-          });
-        }
-        const committed = await commitApprovedRun(sourceState, {
+        const committed = await commitPublishedRun(sourceState, {
           runId: candidate.run_id,
           expectedDigest: candidate.expected_digest,
-        });
+        }, teaching.publishedPlaybooks);
         options?.signal?.throwIfAborted();
+        if (!isCurrentCaseVisible()) return caseNotVisible();
         if (
-          !service.commitState(
+          service.getTeachingJourney() !== teaching || !service.commitState(
             sourceState,
             committed.state,
             committed.result.summary,

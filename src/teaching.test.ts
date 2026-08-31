@@ -13,6 +13,17 @@ import {
 } from "./teaching";
 
 describe("Teachback teaching journey", () => {
+  it.each(["Agent", "Website"] as const)("records the actual draft creator and preserves it in storage: %s", (actor) => {
+    const drafted = draftPlaybook(createTeachingJourney(), AGENT_DRAFT_BOUNDARY, new Date(), actor);
+    expect(drafted.state.activity.at(-1)?.actor).toBe(actor);
+    expect(isTeachingJourney(JSON.parse(JSON.stringify(drafted.state)))).toBe(true);
+    expect(drafted.result.summary).toContain(actor === "Agent" ? "agent drafted" : "website created");
+  });
+
+  it("does not present the built-in example as a real agent tool call", () => {
+    expect(createPublishedJourney().activity.find(event => event.summary.startsWith("Drafted"))?.actor).toBe("Website");
+  });
+
   it("keeps an agent draft unpublished until a person tightens both boundaries", () => {
     const drafted = draftPlaybook(
       createTeachingJourney(),

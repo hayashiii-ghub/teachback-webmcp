@@ -1,8 +1,11 @@
+import { approveForAgent } from "./approval";
+import { resetDemo } from "./reset";
 import { expect, test } from "@playwright/test";
+import { UI_COPY } from "../../src/i18n";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Reset demo" }).click();
+  await resetDemo(page);
 });
 
 test("opens directly on the reusable reservation demo", async ({ page }) => {
@@ -15,22 +18,22 @@ test("opens directly on the reusable reservation demo", async ({ page }) => {
 
 test("preserves independent approvals through navigation, search, and reload", async ({ page }, testInfo) => {
   await page.getByRole("button", { name: "Check conditions and prepare preview", exact: true }).click();
-  await page.getByRole("button", { name: "Approve preview", exact: true }).click();
+  await approveForAgent(page);
   const originalExpiry = await page.locator(".approval-expiry time").getAttribute("datetime");
   const originalRun = await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!).runsByReservationId["R-2048"]);
   await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
-  await expect(page.getByText("Approved for this proposal", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /R-2048\s+Emma Wilson/ })).toContainText("Awaiting review");
+  await expect(page.getByText("Approved · awaiting application", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /R-2048\s+Emma Wilson/ })).toContainText("Awaiting application");
   const search = page.getByRole("searchbox", { name: "Search cases" });
   await search.fill("Maya");
   await expect(page.getByRole("heading", { name: "Maya Patel" })).toBeVisible();
   await page.getByRole("button", { name: "Check conditions and prepare preview", exact: true }).click();
-  await page.getByRole("button", { name: "Approve preview", exact: true }).click();
+  await approveForAgent(page);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Maya Patel" })).toBeVisible();
-  await expect(page.getByText("Approved for this proposal", { exact: true })).toBeVisible();
+  await expect(page.getByText("Approved · awaiting application", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: /R-2048\s+Emma Wilson/ }).click();
-  await expect(page.getByText("Approved for this proposal", { exact: true })).toBeVisible();
+  await expect(page.getByText("Approved · awaiting application", { exact: true })).toBeVisible();
   await expect(page.locator(".approval-expiry time")).toHaveAttribute("datetime", originalExpiry!);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!));
   expect(saved.runsByReservationId["R-2048"]).toEqual(originalRun);
@@ -43,13 +46,15 @@ test("preserves an unapproved preview and its discard across case switches", asy
   await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
   await page.reload();
   await page.getByRole("button", { name: /R-2048\s+Emma Wilson/ }).click();
-  await expect(page.getByRole("button", { name: "Approve preview", exact: true })).toBeVisible();
+  await expect(page.locator('.case-item[aria-current="true"]')).toContainText("Awaiting review");
+  await expect(page.getByRole("button", { name: "Approve and apply", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Discard", exact: true }).click();
   await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
   await page.getByRole("button", { name: /R-2048\s+Emma Wilson/ }).click();
-  await expect(page.getByRole("button", { name: "Approve preview", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Approve and apply", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Check conditions and prepare preview", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Reset demo" }).click();
+  await expect(page.locator('.case-item[aria-current="true"]')).toContainText("Unhandled");
+  await resetDemo(page);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!));
   expect(saved.runsByReservationId).toEqual({});
   expect(saved.rejectionsByReservationId).toEqual({});
@@ -58,19 +63,21 @@ test("preserves an unapproved preview and its discard across case switches", asy
 test("expires approval while a different case is visible", async ({ page }) => {
   await page.clock.install();
   await page.getByRole("button", { name: "Check conditions and prepare preview", exact: true }).click();
-  await page.getByRole("button", { name: "Approve preview", exact: true }).click();
+  await approveForAgent(page);
   await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
   await page.clock.fastForward(5 * 60 * 1000 + 100);
+  await expect(page.getByRole("button", { name: /R-2048\s+Emma Wilson/ })).toContainText("Review again");
   await page.getByRole("button", { name: /R-2048\s+Emma Wilson/ }).click();
   await expect(page.getByText("Approval expired", { exact: true })).toBeVisible();
-  await expect(page.getByText("Approved for this proposal", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Approved · awaiting application", { exact: true })).toHaveCount(0);
   await page.reload();
   await expect(page.getByText("Approval expired", { exact: true })).toBeVisible();
+  await expect(page.locator('.case-item[aria-current="true"]')).toContainText("Review again");
 });
 
 test("migrates the old single approval without resetting or renewing it", async ({ page }) => {
   await page.getByRole("button", { name: "Check conditions and prepare preview", exact: true }).click();
-  await page.getByRole("button", { name: "Approve preview", exact: true }).click();
+  await approveForAgent(page);
   const legacyRun = await page.evaluate(() => {
     const key = "teachback-demo-v1";
     const { runsByReservationId, rejectionsByReservationId, ...saved } = JSON.parse(localStorage.getItem(key)!);
@@ -79,14 +86,14 @@ test("migrates the old single approval without resetting or renewing it", async 
     return activeRun;
   });
   await page.reload();
-  await expect(page.getByText("Approved for this proposal", { exact: true })).toBeVisible();
+  await expect(page.getByText("Approved · awaiting application", { exact: true })).toBeVisible();
   const migrated = await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!));
   expect(migrated.storageVersion).toBe(3);
   expect(migrated.runsByReservationId["R-2048"]).toEqual(legacyRun);
   expect(migrated).not.toHaveProperty("activeRun");
   await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
   await page.getByRole("button", { name: /R-2048\s+Emma Wilson/ }).click();
-  await expect(page.getByText("Approved for this proposal", { exact: true })).toBeVisible();
+  await expect(page.getByText("Approved · awaiting application", { exact: true })).toBeVisible();
 });
 
 test("rejects saved previews indexed under another reservation", async ({ page }) => {
@@ -102,7 +109,7 @@ test("rejects saved previews indexed under another reservation", async ({ page }
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!).runsByReservationId)).toEqual({});
 });
 
-test("prepares, approves, and keeps commit bound to the agent tool", async ({ page }) => {
+test("supports approval-only as a secondary option with a manual application path", async ({ page }) => {
   await expect(
     page.getByText(
       "Reuse one taught workflow with conditions and approval.",
@@ -126,7 +133,7 @@ test("prepares, approves, and keeps commit bound to the agent tool", async ({ pa
       exact: true,
     }),
   ).toHaveCount(0);
-  const flow = page.getByRole("region", { name: "How Teachback reuses work" });
+  const flow = page.getByRole("region", { name: UI_COPY.en.playbookFlow });
   await expect(flow.getByText("Taught from", { exact: true })).toBeVisible();
   await expect(flow.getByText("R-2041", { exact: true })).toBeVisible();
   await expect(flow.getByText("Late Arrival Care")).toBeVisible();
@@ -135,7 +142,7 @@ test("prepares, approves, and keeps commit bound to the agent tool", async ({ pa
   await expect(page.locator(".eligibility-list .check-icon")).toHaveCount(0);
   await expect(
     page.getByText("Review only", { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await page
     .getByRole("button", {
       name: "Check conditions and prepare preview",
@@ -156,17 +163,18 @@ test("prepares, approves, and keeps commit bound to the agent tool", async ({ pa
   await expect(page.getByText("teachback_commit_approved", { exact: true }))
     .toHaveCount(0);
 
-  await page.getByRole("button", { name: "Approve preview" }).click();
-  await expect(page.getByText("Approved for this proposal", { exact: true }))
+  await approveForAgent(page);
+  await expect(page.getByText("Approved · awaiting application", { exact: true }))
     .toBeVisible();
   await expect(page.getByText("7/7 conditions met", { exact: true })).toBeVisible();
-  await expect(page.getByText("Awaiting review", { exact: true })).toBeVisible();
+  await expect(page.getByText("Awaiting application", { exact: true })).toBeVisible();
   await expect(
     page.getByText(
-      "Open this page in a supported browser to apply the approved change.",
+      "This page’s WebMCP tools are currently unavailable.",
       { exact: true },
     ),
-  ).toBeVisible();
+  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Apply approved changes", exact: true })).toBeEnabled();
   await expect(page.locator(".approval-expiry time")).toHaveText(
     /^\d{2}:\d{2} JST$/,
   );
@@ -233,10 +241,11 @@ test("withholds evaluation when no reusable rule applies", async ({ page }) => {
 
   await expect(
     page.locator(".review-panel").getByText(
-      "No reusable rule applies to this reservation",
+      UI_COPY.en.noMatchingRuleHelp,
       { exact: true },
     ),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: UI_COPY.en.inspectRecordedCase })).toContainText("Sofia Rossi");
   await expect(
     page.getByRole("button", {
       name: "Check conditions and prepare preview",
@@ -298,16 +307,18 @@ test("teaches a second playbook and unlocks Daniel", async ({ page }) => {
     }),
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Sofia Rossi" })).toBeVisible();
-  await expect(page.locator(".teaching-record li")).toHaveCount(5);
+  await expect(page.getByRole("region", { name: UI_COPY.en.recordedResponse }).locator(".recorded-actions li")).toHaveCount(6);
 
   await page.getByRole("button", { name: "Create draft" }).click();
-  await expect(page.getByText("Fixed safeguards", { exact: true })).toBeVisible();
-  await expect(page.getByText("Set the boundary", { exact: true })).toBeVisible();
+  const fixedBoundary = page.locator(".fixed-boundary-details");
+  await expect(fixedBoundary.locator("summary")).toHaveText(UI_COPY.en.fixedResponseBoundary);
+  await fixedBoundary.locator("summary").click();
+  await expect(page.getByText(UI_COPY.en.editableBoundary, { exact: true })).toBeVisible();
   await expect(page.getByText("Latest arrival", { exact: true })).toBeVisible();
-  await expect(page.locator(".night-boundary-summary").getByText("23:59", {
+  await expect(fixedBoundary.getByText("23:59", {
     exact: true,
   })).toBeVisible();
-  await expect(page.locator(".night-boundary-summary")).toHaveCSS(
+  await expect(fixedBoundary.locator(".rule-boundary-values")).toHaveCSS(
     "border-right-width",
     "0px",
   );
@@ -333,7 +344,7 @@ test("teaches a second playbook and unlocks Daniel", async ({ page }) => {
       return rect.left >= 0 && rect.right <= window.innerWidth;
     });
   expect(selectedCardIsVisible).toBe(true);
-  const flow = page.getByRole("region", { name: "How Teachback reuses work" });
+  const flow = page.getByRole("region", { name: UI_COPY.en.playbookFlow });
   await expect(flow.getByText("R-2050", { exact: true })).toBeVisible();
   await expect(flow.getByText("Night Arrival Coordination")).toBeVisible();
 
@@ -352,7 +363,7 @@ test("teaches a second playbook and unlocks Daniel", async ({ page }) => {
   await expect(page.getByText("Arranged", { exact: true })).toBeVisible();
 });
 
-test("keeps published source descriptions correct when revisiting Sofia in both languages", async ({
+test("keeps the recorded response and registered rule available when revisiting Sofia in both languages", async ({
   page,
 }) => {
   await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
@@ -364,29 +375,24 @@ test("keeps published source descriptions correct when revisiting Sofia in both 
 
   await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
   await expect(page.getByRole("heading", { name: "Sofia Rossi" })).toBeVisible();
-  const sourceFlow = page.locator(".playbook-flow");
-  const recordedDescription = page.locator(".recorded-workspace p");
-  const sidebarDescription = page.locator(".source-case-note p");
+  const sourceStatus = page.locator(".source-status");
+  const recorded = page.locator(".recorded-workspace");
+  const registeredRule = page.locator(".registered-rule");
+  const sidebarDescription = page.locator(".source-case-note > p");
 
-  await expect(sourceFlow.getByText("R-2050", { exact: true })).toBeVisible();
-  await expect(sourceFlow.getByText("Night Arrival Coordination")).toBeVisible();
-  await expect(recordedDescription).toHaveText(
-    "The recorded actions from this reservation became a reusable rule. Select another case to reuse it within the approved boundary.",
-  );
-  await expect(sidebarDescription).toHaveText(
-    "A reusable rule was created from the response recorded on this reservation.",
-  );
+  await expect(sourceStatus.getByText(UI_COPY.en.ruleRegistered, { exact: true })).toBeVisible();
+  await expect(registeredRule.getByText("Night Arrival Coordination", { exact: true })).toBeVisible();
+  await expect(recorded.getByRole("heading", { name: UI_COPY.en.recordedResponse, exact: true })).toBeVisible();
+  await expect(recorded.locator(".recorded-actions li")).toHaveCount(6);
+  await expect(sidebarDescription).toHaveText(UI_COPY.en.sourcePublishedHelp);
 
   await page.getByRole("button", { name: "日本語" }).click();
   await expect(page.getByRole("heading", { name: "Sofia Rossi" })).toBeVisible();
-  await expect(sourceFlow.getByText("R-2050", { exact: true })).toBeVisible();
-  await expect(sourceFlow.getByText("夜間到着対応", { exact: true })).toBeVisible();
-  await expect(recordedDescription).toHaveText(
-    "この予約で記録した対応から、再利用できるルールを作成しました。別の予約を選ぶと、人が決めた範囲内で再利用できます。",
-  );
-  await expect(sidebarDescription).toHaveText(
-    "この予約で記録した対応から、再利用できるルールを作成しました。",
-  );
+  await expect(sourceStatus.getByText(UI_COPY.ja.ruleRegistered, { exact: true })).toBeVisible();
+  await expect(registeredRule.getByText("夜間到着対応", { exact: true })).toBeVisible();
+  await expect(recorded.getByRole("heading", { name: UI_COPY.ja.recordedResponse, exact: true })).toBeVisible();
+  await expect(recorded.locator(".recorded-actions li")).toHaveCount(6);
+  await expect(sidebarDescription).toHaveText(UI_COPY.ja.sourcePublishedHelp);
 });
 
 test("rejects a saved state that mixes a preview with a refusal", async ({
@@ -409,7 +415,7 @@ test("rejects a saved state that mixes a preview with a refusal", async ({
   });
   await page.reload();
 
-  await expect(page.getByRole("button", { name: "Approve preview" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Approve and apply" })).toHaveCount(0);
   await expect(
     page.getByRole("button", {
       name: "Check conditions and prepare preview",
@@ -441,7 +447,7 @@ test("keeps the teaching source bound to R-2041", async ({ page }) => {
   });
   await page.reload();
 
-  const flow = page.getByRole("region", { name: "How Teachback reuses work" });
+  const flow = page.getByRole("region", { name: UI_COPY.en.playbookFlow });
   await expect(flow.getByText("R-2041", { exact: true })).toBeVisible();
   await expect(flow.getByText("R-2052", { exact: true })).toHaveCount(0);
 });
@@ -450,7 +456,7 @@ test("treats the recorded reservation as the teaching source", async ({ page }) 
   await page.getByRole("button", { name: /R-2041\s+Aiko Tanaka/ }).click();
 
   await expect(
-    page.getByRole("heading", { name: "The playbook was taught here" }),
+    page.getByRole("heading", { name: UI_COPY.en.recordedResponse, exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: /R-2041\s+Aiko Tanaka\s+Handled/ }),
@@ -461,11 +467,8 @@ test("treats the recorded reservation as the teaching source", async ({ page }) 
       exact: true,
     }),
   ).toHaveCount(0);
-  await expect(
-    page
-      .getByRole("region", { name: "How Teachback reuses work" })
-      .getByText("R-2041", { exact: true }),
-  ).toBeVisible();
+  await expect(page.locator(".source-status").getByText(UI_COPY.en.ruleRegistered, { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: UI_COPY.en.registeredRule })).toContainText("Late Arrival Care");
 });
 
 test("returns the checklist to pending after discarding a preview", async ({
@@ -513,7 +516,7 @@ test("keeps WebMCP proof inside the audit drawer", async ({ page }) => {
   });
   await page.reload();
 
-  await expect(page.getByText("Ready to apply", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Site tools registered", { exact: true })).toHaveCount(0);
   await expect.poll(async () => page.evaluate(() => {
     const testWindow = window as Window & { registeredTeachbackTools?: unknown[] };
     return testWindow.registeredTeachbackTools?.length ?? 0;
@@ -546,9 +549,9 @@ test("keeps WebMCP proof inside the audit drawer", async ({ page }) => {
   });
   await page.getByRole("button", { name: "View audit trail" }).click();
   const audit = page.getByRole("dialog", { name: "Audit trail" });
-  await expect(audit.getByText("WebMCP connected", { exact: true })).toBeVisible();
+  await expect(audit.getByText("WebMCP tools registered", { exact: true })).toBeVisible();
   await expect(audit.getByText("5 site tools", { exact: true })).toBeVisible();
-  await audit.getByText("WebMCP connected", { exact: true }).click();
+  await audit.getByText("WebMCP tools registered", { exact: true }).click();
   await expect(
     audit.getByText("teachback_get_current_case", { exact: true }),
   ).toBeVisible();
@@ -556,7 +559,7 @@ test("keeps WebMCP proof inside the audit drawer", async ({ page }) => {
   await page.getByRole("button", { name: "Close audit trail" }).click();
 
   await page.getByRole("button", { name: "日本語" }).click();
-  await expect(page.getByText("反映できます", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("サイトツール登録済み", { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => {
     const testWindow = window as Window & { registeredTeachbackTools?: unknown[] };
     return testWindow.registeredTeachbackTools?.length;
@@ -585,7 +588,7 @@ test("keeps the review flow usable when WebMCP registration fails", async ({
   });
   await page.reload();
 
-  await expect(page.getByText("Changes cannot be applied", { exact: true })).toBeVisible();
+  await expect(page.getByText("Changes cannot be applied", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Emma Wilson" })).toBeVisible();
   await expect(
     page.getByRole("button", {
@@ -593,6 +596,9 @@ test("keeps the review flow usable when WebMCP registration fails", async ({
       exact: true,
     }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Check conditions and prepare preview", exact: true }).click();
+  await page.getByRole("button", { name: "Approve and apply", exact: true }).click();
+  await expect(page.locator(".completion-status strong")).toHaveText("Changes applied");
   expect(pageErrors).toEqual([]);
 });
 
@@ -927,6 +933,7 @@ test("stays usable when saved-state writes are unavailable", async ({ page }) =>
     })
     .click();
   await expect(page.getByRole("heading", { name: "Proposed changes" })).toBeVisible();
+  await expect(page.locator(".storage-warning")).toContainText(UI_COPY.en.storageWarning);
   expect(pageErrors).toEqual([]);
 });
 

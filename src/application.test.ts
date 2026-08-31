@@ -10,9 +10,15 @@ import {
   selectReservation,
 } from "./application";
 import { createInitialState } from "./fixtures";
-import { NIGHT_ARRIVAL_PLAYBOOK } from "./teaching";
+import { LATE_ARRIVAL_PLAYBOOK, NIGHT_ARRIVAL_PLAYBOOK } from "./teaching";
 
 describe("Late Arrival Care run", () => {
+  it.each(["Agent", "Website"] as const)("attributes prepared proposals to their actual caller: %s", async (actor) => {
+    const prepared = await prepareCurrentRun(createInitialState(), new Date(), LATE_ARRIVAL_PLAYBOOK, actor);
+    expect(prepared.result.code).toBe("RUN_PREPARED");
+    expect(prepared.state.audit.at(-1)?.actor).toBe(actor);
+  });
+
   it("cannot replace committed work with a new preview or refusal", async () => {
     const prepared = await prepareCurrentRun(createInitialState());
     const approved = approveCurrentRun(prepared.state).state;

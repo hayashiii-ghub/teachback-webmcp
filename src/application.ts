@@ -295,6 +295,7 @@ export async function prepareCurrentRun(
   state: AppState,
   now = new Date(),
   playbook: PublishedPlaybook = LATE_ARRIVAL_PLAYBOOK,
+  actor: "Agent" | "Website" = "Agent",
 ): Promise<{ state: AppState; result: ToolResult }> {
   const reservation = selectedReservation(state);
   const boundary = playbook.boundary;
@@ -359,7 +360,7 @@ export async function prepareCurrentRun(
       audit: [
         ...state.audit,
         makeAuditEvent(
-          "Agent",
+          actor,
           `Prepared ${playbookName(playbook.id)} for ${reservation.id}.`,
           now,
         ),
@@ -480,7 +481,9 @@ export async function commitApprovedRun(
   state: AppState,
   input: { runId: string; expectedDigest: string },
   now = new Date(),
+  actor: "Human" | "Agent" = "Agent",
 ): Promise<{ state: AppState; result: ToolResult }> {
+  const startedAt = Date.now();
   const run = runForReservation(state);
 
   if (!run || run.id !== input.runId) {
@@ -580,6 +583,17 @@ export async function commitApprovedRun(
     );
   }
 
+  // Digest verification yields to the browser. Advance the supplied clock by
+  // the time spent waiting so a suspended tab cannot apply an expired approval.
+  const commitTime = new Date(now.getTime() + Math.max(0, Date.now() - startedAt));
+  if (approvalExpiresAt <= commitTime.getTime()) {
+    return failure(
+      expireApprovedRun(state, commitTime),
+      "APPROVAL_EXPIRED",
+      "The approval has expired. Prepare a new preview.",
+    );
+  }
+
   const committedReservation: Reservation = {
     ...canonicalAfter,
     version: current.version + 1,
@@ -589,7 +603,7 @@ export async function commitApprovedRun(
     after: committedReservation,
     proposedChanges: canonicalChanges,
     status: "committed",
-    committedAt: nowIso(now),
+    committedAt: nowIso(commitTime),
   };
   const nextState: AppState = {
     ...withCaseWork(state, committedRun),
@@ -601,9 +615,9 @@ export async function commitApprovedRun(
     audit: [
       ...state.audit,
       makeAuditEvent(
-        "Agent",
+        actor,
         `Committed approved run ${run.id} to ${run.reservationId}.`,
-        now,
+        commitTime,
       ),
     ],
   };
@@ -621,6 +635,47 @@ export async function commitApprovedRun(
       },
     },
   };
+}
+
+export async function commitPublishedRun(
+  state: AppState,
+  input: { runId: string; expectedDigest: string },
+  publishedPlaybooks: PublishedPlaybook[],
+  now = new Date(),
+  actor: "Human" | "Agent" = "Agent",
+): Promise<{ state: AppState; result: ToolResult }> {
+  if (publishedPlaybooks.length === 0) {
+    return failure(state, "PLAYBOOK_NOT_PUBLISHED", "A person must review and publish the playbook first.");
+  }
+  const run = runForReservation(state);
+  const playbook = publishedPlaybooks.find(candidate => candidate.id === run?.playbookId);
+  if (run && (!playbook || JSON.stringify(run.playbookBoundary) !== JSON.stringify(playbook.boundary))) {
+    return failure(state, "PUBLISHED_BOUNDARY_CHANGED", "The published playbook boundary changed after preparation.");
+  }
+  return commitApprovedRun(state, input, now, actor);
+}
+
+// Only the human-facing UI calls this; WebMCP still requires a prior human approval.
+export async function approveAndCommitCurrentRun(
+  state: AppState,
+  input: { runId: string; expectedDigest: string },
+  publishedPlaybooks: PublishedPlaybook[],
+  now = new Date(),
+): Promise<{ state: AppState; result: ToolResult }> {
+  const run = runForReservation(state);
+  if (!run || run.id !== input.runId) {
+    return failure(state, "RUN_NOT_FOUND", "The prepared run was not found.");
+  }
+  if (run.digest !== input.expectedDigest) {
+    return failure(state, "DIGEST_MISMATCH", "The requested changes differ from the approved preview.");
+  }
+  // An existing approval keeps its original expiry; this action never renews it.
+  if (run.status === "awaiting_review") {
+    const approved = approveCurrentRun(state, now);
+    if (!approved.result.ok) return approved;
+    state = approved.state;
+  }
+  return commitPublishedRun(state, input, publishedPlaybooks, now, "Human");
 }
 
 function failure(

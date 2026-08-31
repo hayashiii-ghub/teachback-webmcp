@@ -1,5 +1,8 @@
+import { approveForAgent } from "./approval";
+import { resetDemo } from "./reset";
 import { expect, test, type Page } from "@playwright/test";
 import { createTeachingJourney } from "../../src/teaching";
+import { UI_COPY } from "../../src/i18n";
 
 async function installTools(page: Page) {
   await page.addInitScript(() => {
@@ -17,15 +20,61 @@ async function call(page: Page, name: string, input = {}) {
     JSON.parse(await (window as any).reviewTools[name].execute(input)), { name, input });
 }
 
+for (const locale of ["en", "ja"] as const) {
+  test(`keeps ${locale} approval pending until the same proposal is applied through a tool`, async ({ page }, testInfo) => {
+    const copy = UI_COPY[locale];
+    await installTools(page);
+    await page.goto("/");
+    await resetDemo(page);
+    if (locale === "ja") await page.getByRole("button", { name: "日本語", exact: true }).click();
+    const selected = page.locator('.case-item[aria-current="true"]');
+    const before = await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!).reservations);
+
+    const preview = await call(page, "teachback_prepare_current");
+    expect(preview.code).toBe("RUN_PREPARED");
+    const input = { run_id: preview.data.run_id, expected_digest: preview.data.digest };
+    await expect(selected).toContainText(copy.caseAwaitingReview);
+    expect((await call(page, "teachback_commit_approved", input)).code).toBe("RUN_NOT_APPROVED");
+    await expect(selected).toContainText(copy.caseAwaitingReview);
+
+    await approveForAgent(page, locale);
+    await expect(selected).toContainText(copy.caseAwaitingApplication);
+    await expect(page.getByText(copy.approvedReady, { exact: true })).toBeVisible();
+    await expect(page.getByText(copy.approvedNextStep, { exact: true })).toBeVisible();
+    await expect(page.getByText(copy.approvedWithoutWebMcp, { exact: true })).toHaveCount(0);
+    const approved = await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!));
+    expect(approved.reservations).toEqual(before);
+
+    const otherCopy = UI_COPY[locale === "en" ? "ja" : "en"];
+    await page.getByRole("button", { name: locale === "en" ? "日本語" : "English", exact: true }).click();
+    await expect(selected).toContainText(otherCopy.caseAwaitingApplication);
+    await expect(page.getByText(otherCopy.approvedReady, { exact: true })).toBeVisible();
+    await page.reload();
+    const restored = await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!));
+    expect(restored.runsByReservationId).toEqual(approved.runsByReservationId);
+    expect(restored.reservations).toEqual(before);
+    await page.getByRole("button", { name: locale === "en" ? "English" : "日本語", exact: true }).click();
+
+    expect((await call(page, "teachback_commit_approved", input)).code).toBe("RUN_COMMITTED");
+    await expect(selected).toContainText(copy.caseHandled);
+    await expect(page.locator(".completion-status strong")).toHaveText(copy.committed);
+    await expect(page.getByText(copy.approvedReady, { exact: true })).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("committed-page.png"), fullPage: true });
+    expect((await call(page, "teachback_commit_approved", input)).code).toBe("RUN_ALREADY_COMMITTED");
+    await expect(selected).toContainText(copy.caseHandled);
+  });
+}
+
 test("publishing Sofia preserves committed Emma and approved Maya", async ({ page }) => {
   await installTools(page);
   await page.goto("/");
   const preview = await call(page, "teachback_prepare_current");
-  await page.getByRole("button", { name: "Approve preview", exact: true }).click();
+  await approveForAgent(page);
   await call(page, "teachback_commit_approved", { run_id: preview.data.run_id, expected_digest: preview.data.digest });
   await page.getByRole("searchbox", { name: "Search cases" }).fill("Maya");
   await page.getByRole("button", { name: "Check conditions and prepare preview", exact: true }).click();
-  await page.getByRole("button", { name: "Approve preview", exact: true }).click();
+  await approveForAgent(page);
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem("teachback-demo-v1")!));
   await page.getByRole("searchbox", { name: "Search cases" }).fill("");
   await page.getByRole("button", { name: /R-2050\s+Sofia Rossi/ }).click();
@@ -44,7 +93,7 @@ test("publishing Sofia preserves committed Emma and approved Maya", async ({ pag
 test("a second tab cannot resurrect discarded approval", async ({ page, context }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Check conditions and prepare preview", exact: true }).click();
-  await page.getByRole("button", { name: "Approve preview", exact: true }).click();
+  await approveForAgent(page);
   const second = await context.newPage();
   await installTools(second);
   await second.goto("/");
@@ -55,7 +104,7 @@ test("a second tab cannot resurrect discarded approval", async ({ page, context 
   await page.close();
   await second.getByRole("button", { name: "Reload", exact: true }).click();
   await expect(second.getByRole("button", { name: "Check conditions and prepare preview", exact: true })).toBeVisible();
-  await expect(second.getByText("Approved for this proposal", { exact: true })).toHaveCount(0);
+  await expect(second.getByText("Approved · awaiting application", { exact: true })).toHaveCount(0);
 });
 
 test("without tab locking the app cannot mutate saved work or expose tools", async ({ page }) => {
@@ -112,6 +161,7 @@ test("Noah refusal explains compensation and is recorded", async ({ page }, test
   const result = await call(page, "teachback_prepare_current");
   expect(result.code).toBe("PLAYBOOK_NOT_APPLICABLE");
   expect(result.reasons).toContain("Compensation requests are outside this playbook.");
+  await expect(page.locator('.case-item[aria-current="true"]')).toContainText(UI_COPY.en.caseNeedsHumanReview);
   await expect(page.locator(".eligibility-list .is-failed")).toContainText("No compensation request");
   const checklist = await page.locator(".eligibility-list").boundingBox();
   const reasons = await page.locator(".refusal-reasons").boundingBox();

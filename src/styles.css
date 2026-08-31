@@ -251,22 +251,6 @@ a:focus-visible {
   width: 100%;
 }
 
-.draft-rules-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-  line-height: 19px;
-}
-
-.draft-rules-heading span {
-  color: var(--accent-dark);
-  font-weight: 700;
-}
-
 .fixed-rules {
   margin: 0;
   padding: 0;
@@ -687,7 +671,7 @@ a:focus-visible {
 }
 
 .approval-scope {
-  margin: 0 34px 20px;
+  margin: 0 44px 20px;
   padding: 18px 0 0;
   border-top: 1px solid var(--border);
 }
@@ -777,7 +761,7 @@ a:focus-visible {
 .approval-status-title strong {
   display: block;
   margin-top: 0;
-  color: var(--success);
+  color: var(--text);
   font-size: 16px;
   line-height: 23px;
 }
@@ -1045,13 +1029,16 @@ a:focus-visible {
 
 .audit-events li {
   display: grid;
-  grid-template-columns: 72px 1fr auto;
+  grid-template-columns: minmax(5.5em, auto) minmax(0, 1fr) auto;
   gap: 12px;
   padding: 18px 0;
   border-bottom: 1px solid var(--border);
   font-size: 14px;
   line-height: 21px;
 }
+
+.audit-events li > strong { white-space: nowrap; font-size: 12px; }
+.audit-provenance { color: var(--muted); font-size: 12px; line-height: 1.8; }
 
 .audit-event-body {
   min-width: 0;
@@ -1075,6 +1062,62 @@ a:focus-visible {
 
 .audit-events time {
   color: var(--muted);
+}
+
+.source-status { display: flex; flex-wrap: wrap; gap: 12px 40px; margin: 30px 0 10px; font-size: 14px; }
+.source-status div { display: flex; gap: 14px; }
+.source-status dt { color: var(--muted); }
+.source-status dd { margin: 0; }
+.source-status .is-handled { color: var(--success); }
+.source-link { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.source-link:hover { color: var(--accent); }
+.source-link span { color: var(--muted); font-size: 12px; }
+.reservation-requests { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 14px 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.reservation-requests p { margin: 0; }
+.reservation-requests ul { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; padding: 0; list-style: none; color: var(--text); }
+.reservation-requests li span { margin-left: 10px; color: var(--muted); font-size: 12px; }
+.recorded-actions { margin: 22px 0; padding: 0; list-style: none; }
+.recorded-actions li { display: flex; gap: 18px; align-items: baseline; padding: 10px 0; font-size: 15px; line-height: 1.7; }
+.recorded-actions li > span { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+.recorded-messages { margin-top: 20px; font-size: 14px; }
+.recorded-messages summary, .fixed-boundary-details summary { cursor: pointer; padding: 12px 0; }
+.recorded-messages dl { display: grid; gap: 20px; }
+.recorded-messages dt { color: var(--muted); margin-bottom: 8px; }
+.recorded-messages dd { margin: 0; line-height: 1.8; }
+.registered-rule > h3 { font: inherit; font-size: 15px; margin: 0 0 12px; }
+.registered-rule > p { color: var(--text); margin: 0 0 20px; }
+.rule-boundary-values { margin: 12px 0 24px; display: grid; gap: 16px; font-size: 14px; line-height: 1.6; }
+.rule-boundary-values div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.rule-boundary-values dt { color: var(--muted); }
+.rule-boundary-values dd { margin: 0; }
+.fixed-boundary-details { margin: 20px 0; font-size: 14px; border-bottom: 1px solid var(--border); }
+.action-target { display: block; margin-top: 5px; font-family: inherit; font-size: 14px; font-weight: 400; }
+.source-case-note > .primary-action + .primary-action { margin-top: 16px; }
+.manual-endpoint { order: 3; font-size: 14px; line-height: 1.8; color: var(--muted); margin: 20px 44px 0; }
+.search-empty-workspace { grid-column: 1 / -1; padding: 60px 40px; min-height: 360px; }
+.search-empty-workspace h1 { font-size: 28px; }
+.search-empty-workspace p { color: var(--muted); font-size: 15px; line-height: 1.8; }
+.storage-warning, .publish-notice { padding: 18px 32px; display: flex; align-items: center; flex-wrap: wrap; gap: 12px 24px; border-bottom: 1px solid var(--border); }
+.storage-warning { background: var(--selected); border-left: 3px solid var(--accent); }
+.storage-warning p, .publish-notice p { margin: 0; font-size: 14px; line-height: 1.8; }
+.storage-warning p, .publish-notice > div { flex: 1; min-width: 220px; }
+.publish-notice strong { font-size: 14px; font-weight: 500; color: var(--success); }
+.publish-notice p { margin-top: 4px; color: var(--muted); }
+.reset-dialog { max-width: 480px; width: calc(100% - 40px); padding: 30px; background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+.reset-dialog::backdrop { background: rgb(23 21 18 / 30%); }
+.reset-dialog h2 { font-size: 24px; margin: 0 0 18px; }
+.reset-dialog p { line-height: 1.8; font-size: 15px; color: var(--muted); }
+.reset-dialog-actions { display: grid; gap: 12px; margin-top: 26px; }
+.reset-dialog-actions button { min-height: 48px; padding: 14px; font-size: 16px; }
+@media (max-width: 700px) {
+  .source-status { display: grid; gap: 8px; margin-top: 20px; font-size: 13px; }
+  .source-status div { justify-content: space-between; }
+  .source-link { font-size: 14px; }
+  .recorded-actions li { font-size: 14px; }
+  .search-empty-workspace { padding: 32px 20px; }
+  .storage-warning, .publish-notice { padding: 16px 20px; }
+  .reset-dialog { padding: 24px; }
+  .manual-endpoint { margin-right: 20px; margin-left: 20px; }
 }
 
 .sr-only {
@@ -1334,11 +1377,14 @@ a:focus-visible {
   }
 
   .audit-events li {
-    grid-template-columns: 64px 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
+
+  .audit-event-body { grid-column: 1 / -1; grid-row: 2; }
 
   .audit-events time {
     grid-column: 2;
+    grid-row: 1;
   }
 }
 
@@ -1627,6 +1673,10 @@ a:focus-visible {
   color: var(--success);
 }
 
+.case-item.has-approved-state .case-secondary {
+  color: var(--muted);
+}
+
 .case-empty {
   min-height: 96px;
   display: grid;
@@ -1641,21 +1691,21 @@ a:focus-visible {
   grid-row: 2;
   grid-column: 1;
   min-width: 0;
-  padding: 58px clamp(44px, 5vw, 72px) 80px;
+  padding: 32px clamp(32px, 4vw, 56px) 48px;
   background: var(--bg);
 }
 
 .reservation-workspace h1 {
-  margin-bottom: 28px;
+  margin-bottom: 18px;
   font-family: "Iowan Old Style", Baskerville, "Yu Mincho", Georgia, serif;
-  font-size: clamp(48px, 4.3vw, 64px);
+  font-size: clamp(36px, 3.2vw, 46px);
   line-height: 0.98;
   font-weight: 600;
   letter-spacing: -0.035em;
 }
 
 .reservation-meta {
-  padding-bottom: 28px;
+  padding-bottom: 12px;
   border-bottom: 0;
   font-family: "Yu Mincho", "Hiragino Mincho ProN", Georgia, serif;
   font-size: 15px;
@@ -1667,8 +1717,8 @@ a:focus-visible {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 6px 9px;
-  margin-top: 26px;
-  padding: 16px 0;
+  margin-top: 10px;
+  padding: 10px 0;
   border: 0;
   border-bottom: 0;
   border-radius: 0;
@@ -1680,48 +1730,6 @@ a:focus-visible {
   color: var(--muted);
   font-size: 13px;
   line-height: 20px;
-}
-
-.night-boundary-summary {
-  display: grid;
-  gap: 0;
-  margin: 0 0 18px;
-  padding: 0;
-  border-top: 1px solid var(--border);
-}
-
-.night-boundary-summary > div {
-  min-height: 50px;
-  display: grid;
-  grid-template-columns: minmax(130px, 0.9fr) minmax(0, 1.1fr);
-  align-items: center;
-  gap: 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.night-boundary-summary dt,
-.night-boundary-summary dd {
-  margin: 0;
-  font-size: 13px;
-  line-height: 19px;
-}
-.night-boundary-summary select {
-  max-width: 100%;
-  width: 100%;
-  padding: 8px;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--accent);
-  font: inherit;
-}
-
-.night-boundary-summary dt {
-  color: var(--muted);
-}
-
-.night-boundary-summary dd {
-  font-weight: 500;
-  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .source-case-note .primary-action {
@@ -1759,12 +1767,12 @@ a:focus-visible {
 
 .reservation-facts {
   gap: 40px;
-  padding: 24px 0 26px;
+  padding: 18px 0 20px;
   border-bottom: 1px solid var(--border);
 }
 
 .changes-section {
-  padding-top: 30px;
+  padding-top: 22px;
 }
 
 .reservation-facts span {
@@ -1812,7 +1820,7 @@ a:focus-visible {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 58px 0 0;
+  padding: 32px 0 0;
   border-top: 0;
   border-left: 1px solid var(--border);
   background: var(--bg);
@@ -1820,7 +1828,7 @@ a:focus-visible {
 
 .review-heading-row {
   order: 0;
-  margin: 0 44px 32px;
+  margin: 0 44px 20px;
   padding-bottom: 0;
   border-bottom: 0;
 }
@@ -1861,6 +1869,8 @@ a:focus-visible {
   padding-bottom: 0;
   border-top: 0;
   border-bottom: 0;
+  margin-right: 44px;
+  margin-left: 44px;
 }
 
 .eligibility-list,
@@ -1884,6 +1894,73 @@ a:focus-visible {
 .review-actions {
   order: 4;
   margin: 24px 44px 0;
+}
+
+.checked-criteria {
+  order: 1;
+  margin: 0 44px;
+  font-size: 14px;
+}
+
+.pending-criteria { order: 1; margin: 0 20px; font-size: 14px; }
+.pending-criteria summary { min-height: 44px; align-content: center; cursor: pointer; }
+.pending-criteria .eligibility-list { margin: 0; }
+
+.checked-criteria > summary,
+.agent-approval-options > summary {
+  min-height: 44px;
+  align-content: center;
+  cursor: pointer;
+  line-height: 22px;
+}
+
+.checked-criteria .eligibility-list {
+  margin: 0;
+}
+
+.checked-criteria > summary:focus-visible,
+.agent-approval-options > summary:focus-visible,
+.completion-status:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.agent-approval-options {
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 21px;
+}
+
+.agent-approval-options p {
+  margin: 8px 0 12px;
+}
+
+.agent-approval-options .text-button {
+  min-height: 44px;
+}
+
+.application-error {
+  padding: 14px;
+  color: var(--accent-dark);
+  background: var(--attention-bg);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.application-error p {
+  margin: 0 0 8px;
+}
+
+.review-actions .secondary-action {
+  justify-self: center;
+  min-height: 44px;
+  padding: 8px 24px;
+  border-color: transparent;
+  font-family: inherit;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .primary-action,
@@ -1970,18 +2047,19 @@ a:focus-visible {
   .reservation-workspace {
     grid-row: 2;
     grid-column: 1;
-    padding: 48px 36px 64px;
+    padding: 32px 36px 48px;
   }
 
   .review-panel {
     grid-row: 2;
     grid-column: 2;
-    padding-top: 48px;
+    padding-top: 32px;
     border-top: 0;
     border-left: 1px solid var(--border);
   }
 
   .review-heading-row,
+  .checked-criteria,
   .eligibility-list,
   .review-actions,
   .approval-scope,
@@ -2003,7 +2081,7 @@ a:focus-visible {
   }
 
   .reservation-workspace h1 {
-    font-size: clamp(44px, 5vw, 58px);
+    font-size: clamp(34px, 3.8vw, 44px);
   }
 }
 
@@ -2113,15 +2191,15 @@ a:focus-visible {
 
   .reservation-workspace {
     order: 1;
-    padding: 38px 20px 112px;
+    padding: 28px 20px 32px;
   }
 
   .reservation-workspace h1 {
-    font-size: 44px;
+    font-size: 36px;
   }
 
   .playbook-flow {
-    padding: 16px 0;
+    padding: 10px 0;
   }
 
   .playbook-flow > small {
@@ -2134,7 +2212,7 @@ a:focus-visible {
   .reservation-facts {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
-    padding: 26px 0 30px;
+    padding: 18px 0 20px;
   }
 
   .reservation-facts span {
@@ -2147,7 +2225,8 @@ a:focus-visible {
   }
 
   .empty-workspace {
-    display: none;
+    display: block;
+    padding-top: 20px;
   }
 
   .review-panel {
@@ -2158,6 +2237,7 @@ a:focus-visible {
   }
 
   .review-heading-row,
+  .checked-criteria,
   .eligibility-list,
   .review-actions,
   .approval-scope,
@@ -2197,25 +2277,6 @@ a:focus-visible {
   padding-bottom: 64px;
 }
 
-.teaching-record {
-  margin-top: 0;
-}
-
-.teaching-record-heading {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 18px 0 0;
-}
-
-.teaching-record-heading span {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.teaching-record-heading h2,
 .teaching-rule-inner > h2,
 .teaching-rule-summary h3,
 .teaching-rule-panel .boundary-review h2 {
@@ -2223,81 +2284,12 @@ a:focus-visible {
   font-weight: 600;
 }
 
-.app-shell[data-locale="ja"] .teaching-record-heading h2,
 .app-shell[data-locale="ja"] .teaching-rule-inner > h2,
 .app-shell[data-locale="ja"] .teaching-rule-summary h3,
 .app-shell[data-locale="ja"] .teaching-rule-panel .boundary-review h2 {
   font-family: "Yu Mincho", "Hiragino Mincho ProN", "Iowan Old Style", Georgia,
     serif;
   font-feature-settings: "palt";
-}
-
-.teaching-record-heading h2 {
-  margin: 5px 0 0;
-  font-size: 26px;
-  line-height: 34px;
-}
-
-.teaching-record-heading > strong {
-  color: var(--accent-dark);
-  font-family: var(--font-editorial);
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 500;
-  font-variant-numeric: lining-nums tabular-nums;
-}
-
-.teaching-record > p {
-  max-width: 640px;
-  margin: 12px 0 18px;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 24px;
-}
-
-.teaching-record ol {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.teaching-record li {
-  min-height: 60px;
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
-  align-items: start;
-  gap: 14px;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.teaching-record li:last-child {
-  border-bottom: 0;
-}
-
-.teaching-record li > span {
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: #fff;
-  background: var(--text);
-  margin-top: 1px;
-  font-family: var(--font-editorial);
-  font-size: 15px;
-  line-height: 1;
-  font-weight: 400;
-  font-variant-numeric: lining-nums tabular-nums;
-}
-
-.teaching-record li strong {
-  font-family: var(--font-editorial);
-  font-size: 16px;
-  line-height: 28px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .teaching-rule-panel {
@@ -2471,9 +2463,6 @@ a:focus-visible {
   line-height: 32px;
 }
 
-.teaching-rule-panel .draft-rules-heading {
-  margin-top: 4px;
-}
 
 .boundary-section-heading {
   display: flex;
@@ -2486,14 +2475,12 @@ a:focus-visible {
   line-height: 19px;
 }
 
-.boundary-section-heading span,
-.draft-rules-heading span {
+.boundary-section-heading span {
   color: var(--muted);
   font-weight: 500;
 }
 
-.teaching-rule-panel .boundary-section-heading strong,
-.teaching-rule-panel .draft-rules-heading strong {
+.teaching-rule-panel .boundary-section-heading strong {
   font-family: var(--font-editorial);
   font-size: 14px;
   line-height: 22px;
@@ -2530,14 +2517,6 @@ a:focus-visible {
 @media (max-width: 767px) {
   .teaching-source-workspace {
     padding-bottom: 42px;
-  }
-
-  .teaching-record-heading {
-    align-items: start;
-  }
-
-  .teaching-record li {
-    min-height: 58px;
   }
 
   .teaching-rule-panel {
