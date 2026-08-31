@@ -3,12 +3,18 @@
 .core-app {
   --workspace-sidebar-width: clamp(192px, 15vw, 220px);
   --font-ui: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Segoe UI", sans-serif;
+  --tracking-editorial: -.02em;
   font-family: var(--font-ui);
   background: var(--bg);
 }
-.core-app[data-locale="ja"] { font-family: var(--font-ui); font-feature-settings: normal; }
-.core-app h1, .core-app h2 { font-family: var(--font-editorial); letter-spacing: -.035em; }
-.core-app h3 { font-family: var(--font-ui); letter-spacing: -.015em; font-weight: 500; }
+.core-app[data-locale="ja"] {
+  --font-ui: "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --tracking-editorial: .01em;
+  font-family: var(--font-ui);
+  font-feature-settings: "palt";
+}
+.core-app h1, .core-app h2, .core-app h3 { font-family: var(--font-editorial); letter-spacing: var(--tracking-editorial); overflow-wrap: anywhere; }
+.core-app h3 { font-size: 18px; font-weight: 500; }
 .core-app h2 { font-size: 24px; font-weight: 600; }
 .core-app [hidden] { display: none !important; }
 .core-app button { transition: background-color .15s, color .15s; }
@@ -35,6 +41,7 @@
   width: 100%;
   padding: 14px 13px;
   text-align: left;
+  font-family: var(--font-ui);
   font-size: 15px;
   font-weight: 400;
   border: 0;
@@ -46,8 +53,9 @@
 .workspace-nav button svg { width: 23px; height: 23px; }
 .workspace-nav button:hover { background: var(--case-selected); }
 .workspace-nav button[aria-current="page"] { background: var(--selected); border-left-color: var(--accent); color: var(--accent-dark); }
-.workspace-sidebar-footer { margin-top: auto; padding: 28px 12px 0; display: grid; gap: 20px; }
-.workspace-connection { display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 6px 0; text-align: left; font-size: 13px; cursor: pointer; }
+.workspace-sidebar-footer { margin-top: auto; padding: 28px 8px 0; display: grid; gap: 16px; }
+.workspace-connection { display: flex; align-items: center; gap: 8px; min-height: 32px; border: 0; background: none; padding: 6px 0; text-align: left; font-size: 12px; line-height: 1.5; white-space: nowrap; cursor: pointer; }
+.workspace-connection:hover { color: var(--accent-dark); }
 .workspace-connection svg { color: var(--muted); }
 .workspace-connection.is-connected svg { color: var(--success); }
 .workspace-sidebar-footer .language-switch { width: fit-content; font-size: 12px; }
@@ -55,10 +63,11 @@
 .workspace-reset { text-align: left; font-size: 12px; }
 .workspace-content { margin-left: var(--workspace-sidebar-width); min-width: 0; min-height: 100vh; }
 .workspace-page-heading { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 26px 36px 20px; }
+.workspace-page-heading > div { min-width: 0; }
 .workspace-page-heading .core-eyebrow { margin: 0 0 8px; }
 .workspace-page-heading h1 { font-size: 32px; line-height: 1.4; margin: 0; font-weight: 600; }
 .workspace-page-heading > p { color: var(--muted); max-width: 300px; font-size: 13px; }
-.workspace-page-heading .core-secondary { margin: 0; display: inline-flex; gap: 9px; align-items: center; white-space: nowrap; }
+.workspace-page-heading .core-secondary { margin: 0; display: inline-flex; gap: 9px; align-items: center; flex-shrink: 0; max-width: 100%; }
 .core-case-toolbar { padding: 14px 40px; border-top: 1px solid var(--border-soft); gap: 20px; }
 .core-case-toolbar h2 { font-size: 14px; }
 .core-search { width: 250px; }
@@ -80,12 +89,13 @@
 .core-facts dt { font-size: 12px; }
 .core-request { margin-top: 14px; font-size: 12px; }
 .workspace-case-modes { display: flex; gap: 24px; border-bottom: 1px solid var(--border); }
-.workspace-case-modes button { padding: 16px 0 13px; border: 0; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; font-size: 14px; color: var(--muted); }
+.workspace-case-modes button { padding: 16px 0 13px; border: 0; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; font-family: var(--font-editorial); font-size: 16px; color: var(--muted); }
 .workspace-case-modes [aria-pressed="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 500; }
 .core-layout.is-recording, .core-layout.is-procedures { display: block; }
 .core-layout.is-recording > .core-main { max-width: 960px; }
 .core-layout.is-recording .core-fields { max-width: 760px; }
 .workspace-playbook-reference { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 24px; }
+.workspace-playbook-reference > div { min-width: 0; overflow-wrap: anywhere; }
 .workspace-playbook-reference small { display: block; color: var(--muted); font-size: 11px; margin-bottom: 4px; }
 .workspace-playbook-reference strong { font-family: var(--font-editorial); font-size: 17px; font-weight: 500; }
 .workspace-playbook-reference strong span { font-family: var(--font-ui); font-size: 12px; color: var(--muted); font-weight: 400; white-space: nowrap; }
@@ -101,7 +111,7 @@
 .procedure-library .workspace-page-heading { padding-inline: 0; }
 .procedure-library > .core-muted { font-size: 14px; margin-top: 0; margin-bottom: 28px; }
 .procedure-library > section { margin-top: 28px; }
-.procedure-library section > h2 { font-family: var(--font-ui); font-size: 14px; font-weight: 500; margin-bottom: 14px; }
+.procedure-library section > h2 { font-family: var(--font-editorial); font-size: 18px; font-weight: 500; margin-bottom: 14px; }
 .procedure-library h2 small { font-size: 12px; margin-left: 12px; color: var(--muted); }
 .procedure-list { border-top: 1px solid var(--border); }
 .procedure-list > button { width: 100%; min-width: 0; padding: 24px 4px; display: flex; gap: 24px; align-items: center; text-align: left; border: 0; border-bottom: 1px solid var(--border); background: none; cursor: pointer; }
@@ -112,8 +122,8 @@
 .procedure-row-main small { display: block; font-size: 12px; color: var(--muted); margin-top: 8px; }
 .procedure-badge { flex-shrink: 0; display: inline-block; border: 1px solid var(--border); border-radius: 3px; padding: 3px 9px; font-size: 12px; font-weight: 400; white-space: nowrap; }
 .procedure-badge.is-published { color: var(--success); border-color: color-mix(in srgb, var(--success) 25%, var(--border)); background: color-mix(in srgb, var(--success) 7%, var(--bg)); }
-.workspace-empty { min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 32px 20px; border: 1px solid var(--border-soft); }
-.workspace-empty > svg { color: var(--muted); margin-bottom: 24px; }
+.workspace-empty { min-height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 32px 24px; border-block: 1px solid var(--border-soft); }
+.workspace-empty > svg { color: var(--muted); width: 28px; height: 28px; margin-bottom: 20px; }
 .workspace-empty h2 { font-size: 22px; margin-bottom: 10px; }
 .workspace-empty p { color: var(--muted); max-width: 490px; font-size: 14px; margin: 0; }
 .workspace-history { padding: 0 40px 48px; max-width: 1100px; }
@@ -121,25 +131,27 @@
 .workspace-history > .core-muted { font-size: 14px; }
 .workspace-history .core-audit { margin-top: 32px; }
 .workspace-history .core-audit li { padding: 22px 0; }
+.workspace-legacy { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-soft); }
+.workspace-legacy .core-text { font-size: 13px; text-align: left; }
 .workspace-recorded-source { padding: 32px 40px 60px; max-width: 1000px; }
 .workspace-recorded-source > .core-section { padding-top: 28px; }
 .workspace-back { display: inline-flex; align-items: center; gap: 10px; }
 .procedure-detail-heading { padding: 25px 36px 16px; }
 .procedure-detail-heading .workspace-back { margin: 4px 0 18px; }
-.procedure-title { display: flex; align-items: center; gap: 20px; }
-.procedure-title h1 { font-size: 32px; line-height: 1.4; margin: 0; font-weight: 600; }
+.procedure-title { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; }
+.procedure-title h1 { min-width: 0; font-size: 32px; line-height: 1.4; margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 .procedure-detail-heading > .core-muted { font-size: 14px; margin: 16px 0 12px; }
 .procedure-detail-heading > .core-muted span { margin-left: 24px; }
 .procedure-tabs { display: flex; gap: 32px; padding: 0 36px; border-bottom: 1px solid var(--border); }
-.procedure-tabs button { border: 0; border-bottom: 2px solid transparent; background: none; cursor: pointer; padding: 15px 0 13px; font-size: 14px; }
+.procedure-tabs button { border: 0; border-bottom: 2px solid transparent; background: none; cursor: pointer; padding: 15px 0 13px; font-family: var(--font-editorial); font-size: 16px; }
 .procedure-tabs [aria-selected="true"] { border-bottom-color: var(--accent); font-weight: 500; }
 .published-operation-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 410px; }
 .published-operation-layout nav { border-right: 1px solid var(--border); padding: 26px 22px; }
-.published-operation-layout nav h2 { font-family: var(--font-ui); font-size: 14px; font-weight: 500; margin-bottom: 18px; }
-.published-operation-layout nav button { display: flex; align-items: center; gap: 14px; text-align: left; width: 100%; min-height: 62px; padding: 12px; border: 0; border-bottom: 1px solid var(--border-soft); background: none; cursor: pointer; font-size: 13px; }
-.published-operation-layout nav button span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.published-operation-layout nav h2 { font-family: var(--font-editorial); font-size: 18px; font-weight: 500; margin-bottom: 18px; }
+.published-operation-layout nav button { display: flex; align-items: center; gap: 12px; text-align: left; width: 100%; min-height: 62px; padding: 12px; border: 0; border-bottom: 1px solid var(--border-soft); background: none; cursor: pointer; font-family: var(--font-editorial); font-size: 15px; line-height: 1.65; }
+.published-operation-layout nav button span { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .published-operation-layout nav button svg { margin-left: auto; }
-.published-operation-layout nav button[aria-current] { background: var(--case-selected); }
+.published-operation-layout nav button[aria-current] { background: var(--case-selected); color: var(--accent-dark); box-shadow: inset 2px 0 var(--accent); }
 .published-operation { padding: 27px 32px; min-width: 0; }
 .published-operation h2 { font-family: var(--font-editorial); font-size: 28px; font-weight: 600; }
 .published-operation > p { font-size: 14px; }
@@ -149,6 +161,8 @@
 .procedure-footer { border-top: 1px solid var(--border); padding: 20px 36px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .procedure-footer .core-primary { margin: 0; display: inline-flex; align-items: center; gap: 24px; }
 .workspace-case-picker { display: grid; margin-top: 18px; border-top: 1px solid var(--border); }
+.workspace-case-picker-book { overflow-wrap: anywhere; }
+.workspace-case-picker-book strong { font-family: var(--font-editorial); font-size: 18px; font-weight: 500; }
 .workspace-case-choice { display: flex; align-items: center; gap: 20px; width: 100%; min-width: 0; padding: 16px 4px; border: 0; border-bottom: 1px solid var(--border-soft); background: transparent; text-align: left; cursor: pointer; }
 .workspace-case-choice:not(:disabled):hover { background: var(--rail); }
 .core-app .workspace-case-choice:disabled { opacity: 1; color: var(--muted); cursor: not-allowed; }

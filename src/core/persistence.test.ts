@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { evolve, success } from "./common";
-import { createSessionStore, SESSION_STORAGE_KEY, type SessionStorage } from "./persistence";
+import { createSessionStore, LEGACY_STORAGE_KEYS, SESSION_STORAGE_KEY, type SessionStorage } from "./persistence";
 import { createSession } from "./fixtures";
 import { finishRecording, recordCommand, startRecording } from "./recording";
 import type { Proposal } from "./domain";
@@ -85,26 +85,76 @@ describe("single-key session storage", () => {
     expect((await store.dispatch(state => startRecording(state, state.reservations[0].id))).ok).toBe(true);
   });
 
-  it("preserves legacy records and requires an explicit fresh-session start", async () => {
-    const legacy = '{"old":"untouched"}';
-    const storage = memoryStorage({ "teachback-demo-v1": legacy, "teachback-teaching-v4": "{old draft}" });
+  it("opens directly with legacy records archived, without importing or writing them", async () => {
+    const legacy = { "teachback-demo-v1": '{"old":"untouched"}', "teachback-teaching-v4": "{old draft}", "teachback-teaching-scenario-version": "" };
+    const storage = memoryStorage(legacy);
     const store = createSessionStore(storage);
-    expect(store.getLoadStatus().kind).toBe("legacy");
-    expect((await store.dispatch(state => startRecording(state, state.reservations[0].id))).ok).toBe(false);
+    expect(store.getLoadStatus()).toMatchObject({ kind: "ready", legacy, rawSession: null });
+    expect(store.getSnapshot()).toMatchObject({ demonstrations: [], drafts: [], playbooks: [], runsById: {}, audit: [] });
+    expect(store.reload().ok).toBe(true);
     expect(storage.setItem).not.toHaveBeenCalled();
+    expect((await store.dispatch(state => startRecording(state, state.reservations[0].id))).ok).toBe(true);
+    expect(storage.setItem).toHaveBeenCalledTimes(1);
+    expect(storage.setItem.mock.calls[0][0]).toBe(SESSION_STORAGE_KEY);
+    const reloaded = createSessionStore(storage);
+    expect(reloaded.getSnapshot()).toEqual(store.getSnapshot());
+    expect(reloaded.getLoadStatus().legacy).toEqual(legacy);
     expect(store.restart().ok).toBe(true);
-    expect(storage.records.get("teachback-demo-v1")).toBe(legacy);
-    expect(storage.records.get("teachback-teaching-v4")).toBe("{old draft}");
+    for (const [key, value] of Object.entries(legacy)) expect(storage.records.get(key)).toBe(value);
     expect(store.getLoadStatus().kind).toBe("ready");
   });
 
+  it.each(LEGACY_STORAGE_KEYS)("does not require migration when only %s is present", key => {
+    const storage = memoryStorage({ [key]: "" });
+    const store = createSessionStore(storage);
+    expect(store.getLoadStatus()).toMatchObject({ kind: "ready", legacy: { [key]: "" }, rawSession: null });
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it("restores current work when legacy records also exist", async () => {
+    const { storage, store } = await storedWorkflow();
+    const legacy = '{"oldApproval":"not a current approval"}';
+    storage.records.set("teachback-demo-v1", legacy);
+    storage.setItem.mockClear();
+    const reloaded = createSessionStore(storage);
+    expect(reloaded.getLoadStatus()).toMatchObject({ kind: "ready", legacy: { "teachback-demo-v1": legacy } });
+    expect(reloaded.getSnapshot()).toEqual(store.getSnapshot());
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it("preserves legacy data and memory if the first new-session save fails", async () => {
+    const legacy = '{"old":"untouched"}';
+    const storage = memoryStorage({ "teachback-demo-v1": legacy });
+    const store = createSessionStore(storage);
+    const before = store.getSnapshot();
+    storage.setItem.mockImplementation(() => { throw new DOMException("Quota", "QuotaExceededError"); });
+    expect((await store.dispatch(state => startRecording(state, state.reservations[0].id))).code).toBe("PERSISTENCE_FAILED");
+    expect(store.getSnapshot()).toBe(before);
+    expect(storage.records.get("teachback-demo-v1")).toBe(legacy);
+    expect(storage.records.has(SESSION_STORAGE_KEY)).toBe(false);
+  });
+
+  it("does not overwrite a current session created after loading legacy-only storage", async () => {
+    const legacy = '{"old":"untouched"}';
+    const storage = memoryStorage({ "teachback-demo-v1": legacy });
+    const store = createSessionStore(storage);
+    const otherRaw = JSON.stringify({ ...createSession(), revision: 30 });
+    storage.records.set(SESSION_STORAGE_KEY, otherRaw);
+    expect((await store.dispatch(state => startRecording(state, state.reservations[0].id))).code).toBe("SESSION_CHANGED");
+    expect(storage.records.get(SESSION_STORAGE_KEY)).toBe(otherRaw);
+    expect(storage.records.get("teachback-demo-v1")).toBe(legacy);
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
   it.each(["{broken", JSON.stringify({ schemaVersion: 1 }), JSON.stringify({ ...createSession(), reservations: [] }), JSON.stringify({ ...createSession(), reservations: [{ id: "forged" }] }), JSON.stringify({ ...createSession(), runsById: { bad: { status: "approved" } } })])("refuses malformed storage without silently replacing it", async raw => {
-    const storage = memoryStorage({ [SESSION_STORAGE_KEY]: raw });
+    const legacy = '{"old":"untouched"}';
+    const storage = memoryStorage({ [SESSION_STORAGE_KEY]: raw, "teachback-demo-v1": legacy });
     const store = createSessionStore(storage);
     expect(store.getLoadStatus().kind).toBe("error");
     expect(store.getLoadStatus().rawSession).toBe(raw);
     expect((await store.dispatch(state => startRecording(state, state.reservations[0].id))).ok).toBe(false);
     expect(storage.records.get(SESSION_STORAGE_KEY)).toBe(raw);
+    expect(storage.records.get("teachback-demo-v1")).toBe(legacy);
     expect(storage.setItem).not.toHaveBeenCalled();
   });
 
@@ -113,6 +163,18 @@ describe("single-key session storage", () => {
     const store = createSessionStore(storage);
     expect(store.getLoadStatus().kind).toBe("error");
     expect(store.restart().code).toBe("PERSISTENCE_FAILED");
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it("still blocks if an archive read fails after reading the current session", () => {
+    const raw = JSON.stringify(createSession());
+    const storage = memoryStorage({ [SESSION_STORAGE_KEY]: raw });
+    storage.getItem.mockImplementation(key => {
+      if (key === LEGACY_STORAGE_KEYS[0]) throw new Error("blocked");
+      return storage.records.get(key) ?? null;
+    });
+    const store = createSessionStore(storage);
+    expect(store.getLoadStatus()).toMatchObject({ kind: "error", rawSession: raw, error: { code: "PERSISTENCE_FAILED" } });
     expect(storage.setItem).not.toHaveBeenCalled();
   });
 

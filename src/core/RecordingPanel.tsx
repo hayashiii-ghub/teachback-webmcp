@@ -130,7 +130,10 @@ export function RecordingPanel({
       <fieldset disabled={busy} className="core-fields">
         <legend>{t("夕食", "Dinner")}</legend>
         <p>
-          {t(
+          {c.mealPlan !== "dinner_included" ? t(
+            "この予約に夕食は含まれていません。",
+            "Dinner is not included in this reservation.",
+          ) : t(
             "通常の夕食から、遅い到着のための軽食へ。",
             "Change regular dinner to a meal box for late arrival.",
           )}
@@ -148,7 +151,9 @@ export function RecordingPanel({
             })
           }
         >
-          {t("軽食ボックスに変更して保存", "Save meal box")}
+          {c.mealService === "late_meal_box"
+            ? t("軽食ボックスに変更済み", "Meal box saved")
+            : t("軽食ボックスに変更して保存", "Save meal box")}
         </button>
       </fieldset>
       <fieldset disabled={busy} className="core-fields">

@@ -473,7 +473,7 @@ function Workspace() {
         </nav>
         <div className="workspace-sidebar-footer">
           {ready && <button className={`workspace-connection ${connection === "registered" ? "is-connected" : ""}`} onClick={() => setModal("connection")}>
-            <Circle size={9} weight="fill" aria-hidden="true" />
+            <Circle size={6} weight="fill" aria-hidden="true" />
             <span>WebMCP {t(({ unavailable: "利用不可", registering: "接続中", registered: "接続済み", failed: "接続エラー" } as const)[connection], ({ unavailable: "unavailable", registering: "connecting", registered: "connected", failed: "error" } as const)[connection])}</span>
           </button>}
           <div
@@ -505,51 +505,26 @@ function Workspace() {
       {!ready ? (
         <main className="core-start">
           <h1>
-            {load.kind === "legacy"
-              ? t(
-                  "前のデモの記録が残っています",
-                  "Your previous demo records are safe",
-                )
-              : t(
-                  "保存内容を読み込めませんでした",
-                  "Saved work could not be loaded",
-                )}
+            {t("保存内容を読み込めませんでした", "Saved work could not be loaded")}
           </h1>
           <p>
-            {load.kind === "legacy"
-              ? t(
-                  "前の記録はそのまま保管します。新しい体験は、完成した手順がない状態から始まります。",
-                  "Previous records are retained. The new workflow starts without any prebuilt playbooks.",
-                )
-              : t(
-                  "既存データを上書きせず停止しています。退避して内容を確認するか、再読み込みしてください。",
-                  "Existing data has not been overwritten. Export it for inspection or reload.",
-                )}
+            {t(
+              "既存データを上書きせず停止しています。退避して内容を確認するか、再読み込みしてください。",
+              "Existing data has not been overwritten. Export it for inspection or reload.",
+            )}
           </p>
           <div className="core-actions">
             <button
               className="core-primary"
-              onClick={() => {
-                if (load.kind === "error") {
-                  setModal("reset");
-                  return;
-                }
-                const r = store.restart(createSession());
-                setResult(r);
-              }}
+              onClick={() => setModal("reset")}
             >
-              {load.kind === "legacy"
-                ? t(
-                    "旧記録を残して、新しい体験を始める",
-                    "Keep old records and start the new workflow",
-                  )
-                : t("新しいセッションでやり直す", "Start a new session")}
+              {t("新しいセッションでやり直す", "Start a new session")}
             </button>
             <button
               className="core-secondary"
               onClick={() => setModal("legacy")}
             >
-              {t("旧データを確認・退避", "Inspect / export old data")}
+              {t("保存データを確認・退避", "Inspect / export saved data")}
             </button>
             <button
               className="core-text"
@@ -694,6 +669,9 @@ function Workspace() {
               <div><strong>{a.actor === "Human" ? t("人", "Human") : a.actor === "Website" ? t("サイト", "Website") : "Agent"}</strong><time>{new Date(a.at).toLocaleString(locale)}</time></div>
               <p>{a.summary}</p>{a.caseId && <small>{a.caseId}</small>}
             </li>)}</ol> : <div className="workspace-empty"><ClockCounterClockwise size={32} aria-hidden="true" /><h2>{t("まだ操作履歴はありません", "No activity yet")}</h2><p>{t("案件への対応を始めると、ここに記録が残ります。", "Start working on a case to build its history here.")}</p></div>}
+            {Object.keys(load.legacy).length > 0 && <div className="workspace-legacy">
+              <button className="core-text" onClick={() => setModal("legacy")}>{t("以前のデモの記録を見る", "View previous demo records")}</button>
+            </div>}
           </main> : <main className={`core-layout ${view === "playbooks" ? "is-procedures" : stage === "record" ? "is-recording" : ""}`}>
             <div className={`core-main ${view === "playbooks" ? "workspace-procedures" : ""}`}>
               {view === "cases" && <>
@@ -1223,25 +1201,24 @@ function Workspace() {
       )}
       {modal === "legacy" && (
         <Modal
-          title={t("前のデモの保存データ", "Previous demo data")}
+          title={load.kind === "error" ? t("保存データ", "Saved data") : t("前のデモの保存データ", "Previous demo data")}
           close={() => setModal(null)}
         >
           <p>
-            {t(
-              "閲覧のみです。新しい実演や有効な承認には変換しません。",
-              "Read-only. These records are not converted into new demonstrations or valid approvals.",
-            )}
+            {load.kind === "error"
+              ? t("読み込めなかった保存内容を、そのまま確認・書き出しできます。ここでデータは変更しません。", "Inspect or export the saved contents that could not be loaded. Nothing is changed here.")
+              : t("閲覧のみです。新しい実演や有効な承認には変換しません。", "Read-only. These records are not converted into new demonstrations or valid approvals.")}
           </p>
           <button
             className="core-secondary"
             onClick={() =>
-              exportJson("teachback-legacy-backup.json", {
+              exportJson(load.kind === "error" ? "teachback-session-backup.json" : "teachback-legacy-backup.json", {
                 legacy: load.legacy,
                 rawSession: load.kind === "error" ? load.rawSession : undefined,
               })
             }
           >
-            {t("旧データを退避", "Export previous data")}
+            {load.kind === "error" ? t("保存データを退避", "Export saved data") : t("旧データを退避", "Export previous data")}
           </button>
           <pre className="core-json-read">
             {JSON.stringify(

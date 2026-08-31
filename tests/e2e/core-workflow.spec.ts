@@ -1,4 +1,5 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import type { Command, PlaybookDraft, PlaybookStep, PreparedRun, Proposal, PublishedPlaybook, Reservation, Result, SessionState, TextToken } from "../../src/core/domain";
 import { isSessionState } from "../../src/core/persistence";
 import { approveRun } from "../../src/core/playbook-runtime";
@@ -114,6 +115,7 @@ async function recordCase(page: Page, reservation: Reservation, subset = false):
   if (!subset) {
     await page.getByRole("button", { name: "Save meal box", exact: true }).click();
     await expect(page.locator(".core-records li")).toHaveCount(2);
+    await expect(page.getByRole("button", { name: "Meal box saved", exact: true })).toBeDisabled();
     await page.getByLabel("Message to the guest", { exact: true }).fill(`Dear ${reservation.guestDisplayName}, your meal box will be ready when you arrive at ${reservation.requestedArrivalTime}.`);
     await page.getByRole("button", { name: "Save message draft", exact: true }).click();
     await expect(page.locator(".core-records li")).toHaveCount(3);
@@ -241,6 +243,40 @@ test("separates Cases, Playbooks and History without changing saved work or the 
   await expect(page.getByRole("heading", { name: selected.guestDisplayName, exact: true })).toBeVisible();
   await expect(page.locator(".core-case-rail").getByRole("button", { name: new RegExp(selected.id) })).toHaveAttribute("aria-pressed", "true");
   expect(await saved(page)).toEqual(before);
+});
+
+test("keeps editorial draft and published details readable in both languages", async ({ page }) => {
+  await open(page);
+  const [source] = await cases(page);
+  const recorded = await recordCase(page, source);
+  const proposal = proposalFrom(recorded);
+  data(await tool<PlaybookDraft>(page, "teachback_create_draft", {
+    demonstration_id: recorded.demonstrationId, source_digest: recorded.sourceDigest,
+    request_id: crypto.randomUUID(), proposal,
+  }));
+  for (const locale of ["en", "ja"] as const) {
+    await page.getByRole("button", { name: locale === "en" ? "EN" : "日本語", exact: true }).click();
+    for (const [tab, name] of (locale === "en"
+      ? [["operations", "Operations"], ["conditions", "Conditions"], ["review", "Review & publish"]]
+      : [["operations", "操作内容"], ["conditions", "適用条件"], ["review", "確認・公開"]])) {
+      await page.getByRole("tab", { name, exact: true }).click();
+      await noHorizontalOverflow(page);
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+      await page.screenshot({ path: test.info().outputPath(`draft-${tab}-${locale}.png`), fullPage: true, scale: "css", animations: "disabled" });
+    }
+  }
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  // The full allowed length must wrap on publication, not stretch the workspace.
+  const longName = "LongPlaybookName".repeat(5);
+  await page.getByLabel("Playbook name", { exact: true }).fill(longName);
+  await page.getByRole("button", { name: "Save changes and validate", exact: true }).click();
+  await page.getByRole("checkbox", { name: "I reviewed the recorded work, bindings and boundary", exact: true }).check();
+  await page.getByRole("button", { name: "Publish this playbook", exact: true }).click();
+  await expect(page.locator(".published-procedure h1")).toHaveText(longName);
+  await noHorizontalOverflow(page);
+  await page.screenshot({ path: test.info().outputPath("published-long-name.png"), fullPage: true, scale: "css", animations: "disabled" });
+  await workspace(page, "History");
+  await noHorizontalOverflow(page);
 });
 
 test("prepares through WebMCP and applies exact changes only when a person approves in the UI", async ({ page }) => {
@@ -495,22 +531,104 @@ test("surfaces failed saves and reset without losing already saved work", async 
   await expect(page.getByLabel("Handoff text", { exact: true })).toHaveValue("Saved work must survive a quota error.");
 });
 
-test("requires an explicit new-workflow choice and preserves legacy data through reset", async ({ page }) => {
-  const legacy = JSON.stringify({ oldAudit: "Retain previous submission evidence" });
-  await page.addInitScript(value => { if (!localStorage.getItem("teachback-demo-v1")) localStorage.setItem("teachback-demo-v1", value); }, legacy);
+test("opens cases directly and keeps legacy records read-only in History", async ({ page }) => {
+  const legacy = {
+    "teachback-demo-v1": JSON.stringify({ oldAudit: "Retain previous submission evidence" }),
+    "teachback-teaching-v4": "{old draft}",
+    "teachback-teaching-scenario-version": "",
+  };
+  await page.addInitScript(records => {
+    for (const [key, value] of Object.entries(records)) {
+      if (localStorage.getItem(key) === null) localStorage.setItem(key, value);
+    }
+  }, legacy);
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Your previous demo records are safe", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Keep old records and start the new workflow", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Start recording", exact: true })).toBeVisible();
   await ready(page);
+  await expect(page.getByRole("heading", { name: "Your previous demo records are safe", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "View previous demo records", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(key => localStorage.getItem(key), SESSION_KEY)).toBeNull();
   expect(data(await tool<PlaybooksData>(page, "teachback_list_playbooks")).playbooks).toEqual([]);
+  await noHorizontalOverflow(page);
+  await page.screenshot({ path: test.info().outputPath("legacy-direct-entry.png"), scale: "css", animations: "disabled" });
+  await workspace(page, "History");
+  await expect(page.getByRole("heading", { name: "No activity yet", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "View previous demo records", exact: true }).click();
+  const archive = page.getByRole("dialog", { name: "Previous demo data", exact: true });
+  await expect(archive).toBeVisible();
+  await expect(archive.locator("pre")).toHaveText(JSON.stringify({ legacy }, null, 2));
+  const downloadPromise = page.waitForEvent("download");
+  await archive.getByRole("button", { name: "Export previous data", exact: true }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("teachback-legacy-backup.json");
+  expect(JSON.parse(await readFile((await download.path())!, "utf8"))).toEqual({ legacy });
+  expect(await page.evaluate(key => localStorage.getItem(key), SESSION_KEY)).toBeNull();
+  await archive.getByRole("button", { name: "Close / 閉じる", exact: true }).click();
+  await noHorizontalOverflow(page);
+  await page.getByRole("button", { name: "日本語", exact: true }).click();
+  await noHorizontalOverflow(page);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await expect(page.getByRole("heading", { name: "操作履歴", exact: true })).toBeInViewport();
+  await page.screenshot({ path: test.info().outputPath("legacy-history-ja.png"), scale: "css", fullPage: true, animations: "disabled" });
+  await page.getByRole("button", { name: "以前のデモの記録を見る", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "前のデモの保存データ", exact: true })).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath("legacy-archive-ja.png"), scale: "css", animations: "disabled" });
+  await page.getByRole("dialog").getByRole("button", { name: "Close / 閉じる", exact: true }).click();
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await workspace(page, "Cases");
+  await page.getByRole("button", { name: "Start recording", exact: true }).click();
+  await page.getByLabel("Time", { exact: true }).fill("21:30");
+  await page.getByRole("button", { name: "Save arrival", exact: true }).click();
+  const original = await saved(page);
+  await page.reload(); await ready(page);
+  await expect(page.getByRole("heading", { name: "Recording your work", exact: true })).toBeVisible();
+  expect(await saved(page)).toEqual(original);
   await page.getByRole("button", { name: "Reset demo", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
-  expect(await page.evaluate(() => localStorage.getItem("teachback-demo-v1"))).toBe(legacy);
+  expect(await saved(page)).toEqual(original);
   await page.getByRole("button", { name: "Reset demo", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Reset session", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  expect(await page.evaluate(() => localStorage.getItem("teachback-demo-v1"))).toBe(legacy);
   expect((await saved(page)).demonstrations).toEqual([]);
+  expect(await page.evaluate(keys => Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)])), Object.keys(legacy))).toEqual(legacy);
+  await workspace(page, "History");
+  await expect(page.getByRole("button", { name: "View previous demo records", exact: true })).toBeVisible();
+});
+
+test("hides the legacy archive action when no previous records exist", async ({ page }) => {
+  await open(page);
+  await workspace(page, "History");
+  await expect(page.getByRole("heading", { name: "No activity yet", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "View previous demo records", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Export this session", exact: true })).toBeVisible();
+});
+
+test("keeps corrupt current storage blocked and exportable even with legacy records", async ({ page }) => {
+  const rawSession = "{broken current work";
+  const legacy = { "teachback-demo-v1": '{"old":"untouched"}' };
+  await page.addInitScript(({ key, raw, records }) => {
+    localStorage.setItem(key, raw);
+    for (const [name, value] of Object.entries(records)) localStorage.setItem(name, value);
+  }, { key: SESSION_KEY, raw: rawSession, records: legacy });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Saved work could not be loaded", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start recording", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Main navigation", exact: true }).getByRole("button", { name: "History", exact: true })).toBeDisabled();
+  expect(await page.evaluate(() => Object.keys((window as TestWindow).__teachbackTestTools ?? {}))).toEqual([]);
+  await page.getByRole("button", { name: "Inspect / export saved data", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Saved data", exact: true });
+  await expect(dialog).toBeVisible();
+  const downloadPromise = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "Export saved data", exact: true }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("teachback-session-backup.json");
+  expect(JSON.parse(await readFile((await download.path())!, "utf8"))).toEqual({ legacy, rawSession });
+  await dialog.getByRole("button", { name: "Close / 閉じる", exact: true }).click();
+  await page.getByRole("button", { name: "Start a new session", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Saved work could not be loaded", exact: true })).toBeVisible();
+  expect(await page.evaluate(key => localStorage.getItem(key), SESSION_KEY)).toBe(rawSession);
+  expect(await page.evaluate(keys => Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)])), Object.keys(legacy))).toEqual(legacy);
 });
 
 test("shows draft validation and publication guidance in Japanese", async ({ page }) => {

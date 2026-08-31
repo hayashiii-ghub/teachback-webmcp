@@ -9,7 +9,7 @@ export const LEGACY_STORAGE_KEYS = ["teachback-demo-v1", "teachback-teaching-v4"
 const MAX_SESSION_BYTES = 16 * 1_024 * 1_024;
 export type SessionStorage = Pick<Storage, "getItem" | "setItem">;
 export interface SessionLoadStatus {
-  kind: "ready" | "legacy" | "error";
+  kind: "ready" | "error";
   error?: Result;
   legacy: Record<string, string>;
   rawSession: string | null;
@@ -178,15 +178,13 @@ export function createSessionStore(storage: SessionStorage, initial: SessionStat
         status = { kind: "error", error: failure, legacy, rawSession: raw };
         return failure;
       }
-    } else if (Object.keys(legacy).length) {
-      const failure = error("LEGACY_SESSION_FOUND", "Previous demo records were found. They are preserved; explicitly start the new recording experience to continue.");
-      status = { kind: "legacy", error: failure, legacy, rawSession: null };
-      return failure;
     } else if (!isSessionState(snapshot)) {
       const failure = error("INVALID_SESSION", "The initial session is invalid.");
       status = { kind: "error", error: failure, legacy, rawSession: null };
       return failure;
     }
+    // Old demo keys are a read-only archive, never a migration or reset trigger.
+    // Opening the workspace writes nothing; the first operation saves only the new key.
     status = { kind: "ready", legacy, rawSession: raw };
     return { ok: true, code: "SESSION_LOADED", summary: "The session is ready." };
   }
