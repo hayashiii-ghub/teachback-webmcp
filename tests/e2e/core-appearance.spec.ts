@@ -78,7 +78,7 @@ async function startFirstRecording(page: Page) {
 
 test("keeps navigation, connection status and recording fields within narrow and wide viewports", async ({ page }) => {
   await startFirstRecording(page);
-  for (const width of [320, 390, 768, 1024, 1440]) {
+  for (const width of [320, 360, 390, 430, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     for (const locale of ["en", "ja"] as const) {
       await test.step(`${width}px / ${locale}`, async () => {
@@ -95,8 +95,26 @@ test("keeps navigation, connection status and recording fields within narrow and
         }
         const connection = page.locator(".workspace-connection");
         await expect(connection).toHaveAccessibleName(locale === "en" ? "WebMCP connected" : "WebMCP 接続済み");
-        if (width > 650) {
-          const label = await connection.locator("span").evaluate(element => {
+        if (width <= 650) {
+          await expect(connection.locator(".workspace-connection-short")).toBeVisible();
+          await expect(connection.locator(".workspace-connection-short")).toHaveText("MCP");
+          const targets = page.locator([
+            ".workspace-logo",
+            ".workspace-connection",
+            ".workspace-sidebar-footer .language-switch button",
+            ".workspace-reset",
+            ".workspace-nav button",
+          ].join(", "));
+          for (const target of await targets.all()) {
+            const box = await target.boundingBox();
+            expect(box, "Mobile header controls remain visible").not.toBeNull();
+            expect(box!.height, "Mobile header controls provide a 44px tap target").toBeGreaterThanOrEqual(44);
+          }
+          const shell = await page.locator(".workspace-sidebar").boundingBox();
+          expect(shell, "The mobile workspace header is rendered").not.toBeNull();
+          expect(shell!.height, "The compact mobile header does not dominate a zoomed viewport").toBeLessThanOrEqual(116);
+        } else {
+          const label = await connection.locator(".workspace-connection-label").evaluate(element => {
             const range = document.createRange();
             range.selectNodeContents(element);
             const bounds = element.getBoundingClientRect();
@@ -115,6 +133,32 @@ test("keeps navigation, connection status and recording fields within narrow and
         }
       });
     }
+  }
+});
+
+test("keeps the selected case in context instead of jumping back to the page start on mobile", async ({ page }) => {
+  for (const [index, width] of [320, 360, 390, 430].entries()) {
+    await page.setViewportSize({ width, height: 700 });
+    const name = index % 2 ? "Aiko Tanaka" : "Emma Wilson";
+    const card = page.locator(".core-case-rail").getByRole("button", { name: new RegExp(name) });
+    await page.evaluate(() => window.scrollTo({ top: 120, behavior: "instant" }));
+    await expect(card).toBeInViewport();
+    const before = await page.evaluate(() => window.scrollY);
+    expect(before, "The regression check starts below the page top").toBeGreaterThan(0);
+
+    await card.click();
+    const detail = page.locator(".core-case-summary");
+    await expect(detail.getByRole("heading", { name, exact: true })).toBeVisible();
+    const after = await page.evaluate(() => window.scrollY);
+    expect(after, "Selecting a case must not reset the mobile page to the top").toBeGreaterThanOrEqual(before - 1);
+
+    const visible = await page.evaluate(() => {
+      const header = document.querySelector(".workspace-sidebar")!.getBoundingClientRect();
+      const summary = document.querySelector(".core-case-summary")!.getBoundingClientRect();
+      return { headerBottom: header.bottom, summaryTop: summary.top, summaryBottom: summary.bottom, viewport: window.innerHeight };
+    });
+    expect(visible.summaryTop).toBeLessThan(visible.viewport);
+    expect(visible.summaryBottom).toBeGreaterThan(visible.headerBottom);
   }
 });
 

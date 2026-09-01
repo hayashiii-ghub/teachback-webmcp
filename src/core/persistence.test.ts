@@ -3,7 +3,7 @@ import { evolve, success } from "./common";
 import { createSessionStore, LEGACY_STORAGE_KEYS, SESSION_STORAGE_KEY, type SessionStorage } from "./persistence";
 import { createSession } from "./fixtures";
 import { finishRecording, recordCommand, startRecording } from "./recording";
-import type { Proposal } from "./domain";
+import type { PreparedRun, Proposal, SessionState } from "./domain";
 import { createDraft, publishDraft } from "./teaching";
 import { approveRun, commitRun, prepareRun } from "./playbook-runtime";
 
@@ -44,6 +44,19 @@ async function storedWorkflow() {
   const prepared = await store.dispatch(state => prepareRun(state, target.id, target.version, book.id, book.version));
   expect(prepared.ok, prepared.summary).toBe(true);
   return { storage, store, source, book, run: prepared.data! };
+}
+
+async function expectInvalidActiveRunIndex(
+  mutate: (state: SessionState, run: PreparedRun) => SessionState,
+) {
+  const { store, run } = await storedWorkflow();
+  const malformed = mutate(structuredClone(store.getSnapshot()), run);
+  const raw = JSON.stringify(malformed);
+  const storage = memoryStorage({ [SESSION_STORAGE_KEY]: raw });
+  const loaded = createSessionStore(storage);
+  expect(loaded.getLoadStatus()).toMatchObject({ kind: "error", rawSession: raw, error: { code: "INVALID_SESSION" } });
+  expect(storage.records.get(SESSION_STORAGE_KEY)).toBe(raw);
+  expect(storage.setItem).not.toHaveBeenCalled();
 }
 
 describe("single-key session storage", () => {
@@ -156,6 +169,44 @@ describe("single-key session storage", () => {
     expect(storage.records.get(SESSION_STORAGE_KEY)).toBe(raw);
     expect(storage.records.get("teachback-demo-v1")).toBe(legacy);
     expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it("refuses an awaiting-review run that is missing from the active-run index", async () => {
+    await expectInvalidActiveRunIndex((state, run) => {
+      delete state.activeRunIdByCaseId[run.caseId];
+      return state;
+    });
+  });
+
+  it("refuses an approved run that is missing from the active-run index", async () => {
+    await expectInvalidActiveRunIndex((state, run) => {
+      const approved = approveRun(state, run.id, run.digest);
+      expect(approved.result.ok, approved.result.summary).toBe(true);
+      const malformed = structuredClone(approved.state);
+      delete malformed.activeRunIdByCaseId[run.caseId];
+      return malformed;
+    });
+  });
+
+  it("refuses an active-run index that points to a stale run", async () => {
+    await expectInvalidActiveRunIndex((state, run) => ({
+      ...state,
+      runsById: { ...state.runsById, [run.id]: { ...state.runsById[run.id], status: "stale", approval: null } },
+    }));
+  });
+
+  it("refuses an active-run index that points to a discarded run", async () => {
+    await expectInvalidActiveRunIndex((state, run) => ({
+      ...state,
+      runsById: { ...state.runsById, [run.id]: { ...state.runsById[run.id], status: "discarded", approval: null } },
+    }));
+  });
+
+  it("refuses an active-run index whose case does not own the referenced run", async () => {
+    await expectInvalidActiveRunIndex((state, run) => ({
+      ...state,
+      activeRunIdByCaseId: { [state.reservations[0].id]: run.id },
+    }));
   });
 
   it("exposes unavailable reads and does not write around them", () => {

@@ -2,10 +2,20 @@ import type { Boundary, Issue, PlaybookStep, Reservation } from "./domain";
 import { timeMinutes, validDate } from "./common";
 
 export const FACILITY_LATEST_ARRIVAL = "22:00";
+const facilityLatestArrivalMinutes = (() => {
+  const minutes = timeMinutes(FACILITY_LATEST_ARRIVAL);
+  if (minutes === null) {
+    throw new Error(
+      "FACILITY_LATEST_ARRIVAL must be a valid 24-hour HH:mm time.",
+    );
+  }
+  return minutes;
+})();
+
 export const FIXED_SAFEGUARDS = [
   "Confirmed, not checked in, and arriving on the current business date.",
   "Requested arrival date must be known and match the reservation arrival date.",
-  "Arrival must be at or before 22:00 and the human-confirmed limit.",
+  `Arrival must be at or before ${FACILITY_LATEST_ARRIVAL} and the human-confirmed limit.`,
   "New dietary, taxi, compensation, cancellation, and payment-change requests require a person.",
   "Unknown safety information requires a person.",
   "Meal changes require an included, regular dinner.",
@@ -22,7 +32,7 @@ export function validateBoundary(boundary: unknown): Issue[] {
   }
   const minutes = timeMinutes((boundary as Boundary).latestArrivalTime);
   if (minutes === null) return [issue("proposedBoundary.latestArrivalTime", "INVALID_BOUNDARY", "Use a valid 24-hour HH:mm time.")];
-  if (minutes > 22 * 60) return [issue("proposedBoundary.latestArrivalTime", "BOUNDARY_TOO_WIDE", "The facility limit is 22:00. A person may choose an earlier limit, not a later one.")];
+  if (minutes > facilityLatestArrivalMinutes) return [issue("proposedBoundary.latestArrivalTime", "BOUNDARY_TOO_WIDE", `The facility limit is ${FACILITY_LATEST_ARRIVAL}. A person may choose an earlier limit, not a later one.`)];
   return [];
 }
 
@@ -39,7 +49,7 @@ export function evaluatePolicy(reservation: Reservation, boundary: Boundary, ste
   const arrival = timeMinutes(reservation.requestedArrivalTime);
   const limit = timeMinutes(boundary?.latestArrivalTime);
   if (arrival === null) issues.push(issue("requestedArrivalTime", "ARRIVAL_TIME_UNKNOWN", "Confirm a valid requested arrival time."));
-  else if (arrival > 22 * 60 || (limit !== null && arrival > limit)) {
+  else if (arrival > facilityLatestArrivalMinutes || (limit !== null && arrival > limit)) {
     issues.push(issue("requestedArrivalTime", "ARRIVAL_AFTER_BOUNDARY", "The requested arrival exceeds this playbook's allowed time."));
   }
   const requests = [

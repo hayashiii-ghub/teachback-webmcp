@@ -133,7 +133,14 @@ export function isSessionState(value: unknown): value is SessionState {
   }
   if (state.drafts.some(item => item.publishedPlaybookId !== null && !state.playbooks.some(published => published.id === item.publishedPlaybookId))) return false;
   for (const [id, item] of Object.entries(state.runsById)) if (id !== item.id || !cases.has(item.caseId) || !state.playbooks.some(published => published.id === item.playbookId && published.version === item.playbookVersion)) return false;
-  for (const [caseId, runId] of Object.entries(state.activeRunIdByCaseId)) if (!cases.has(caseId) || state.runsById[runId]?.caseId !== caseId) return false;
+  const indexedStatuses = new Set<PreparedRun["status"]>(["awaiting_review", "approved", "committed"]);
+  for (const [caseId, runId] of Object.entries(state.activeRunIdByCaseId)) {
+    const indexed = state.runsById[runId];
+    if (!cases.has(caseId) || indexed?.caseId !== caseId || !indexedStatuses.has(indexed.status)) return false;
+  }
+  for (const item of Object.values(state.runsById)) {
+    if (["awaiting_review", "approved"].includes(item.status) && state.activeRunIdByCaseId[item.caseId] !== item.id) return false;
+  }
   return true;
 }
 

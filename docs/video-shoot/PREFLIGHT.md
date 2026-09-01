@@ -50,7 +50,7 @@
 - ブラウザ操作の通常スクリーンショットはページ倍率の影響を受けたため、本番ではCDP収録フレームの寸法を直接確認する。
 - 既存の動画・音声・HyperFramesタイムラインは変更していない。
 - 最新のロゴは`public/logo.svg`。旧動画側の`assets/logo.svg`とはファイル内容が異なるため、次の編集では公開側を正本にする。見た目の差をハッシュだけで判断しない。
-- 配色の正本は`src/styles.css`: paper `#fbfaf6`、ink `#171512`、accent `#a54436`、success `#4c6854`。
+- 配色の正本は`src/core/base.css`: paper `#fbfaf6`、ink `#171512`、accent `#a54436`、success `#4c6854`。
 
 ローカル確認資料（Git管理外）:
 

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { PlaybookStep, Reservation } from "./domain";
-import { evaluatePolicy, validateBoundary } from "./playbook-policy";
+import {
+  evaluatePolicy,
+  FACILITY_LATEST_ARRIVAL,
+  validateBoundary,
+} from "./playbook-policy";
 
 function reservation(patch: Partial<Reservation> = {}): Reservation {
   return {
@@ -20,6 +24,33 @@ const meal: PlaybookStep = { id: "meal", type: "set_meal_service", evidenceComma
 const message: PlaybookStep = { id: "message", type: "draft_guest_message", evidenceCommandIds: ["cmd-3"], rationale: "Recorded draft.", input: { template: [{ kind: "literal", value: "Welcome." }] } };
 
 describe("fixed playbook policy", () => {
+  it("uses the exported facility limit for both boundaries and requested arrivals", () => {
+    const [hours, minutes] = FACILITY_LATEST_ARRIVAL.split(":").map(Number);
+    const afterLimitMinutes = hours * 60 + minutes + 1;
+    const afterLimit = `${String(Math.floor(afterLimitMinutes / 60)).padStart(2, "0")}:${String(afterLimitMinutes % 60).padStart(2, "0")}`;
+
+    expect(
+      validateBoundary({ latestArrivalTime: FACILITY_LATEST_ARRIVAL }),
+    ).toEqual([]);
+    expect(validateBoundary({ latestArrivalTime: afterLimit })).not.toEqual([]);
+    expect(
+      evaluatePolicy(
+        reservation({ requestedArrivalTime: FACILITY_LATEST_ARRIVAL }),
+        { latestArrivalTime: FACILITY_LATEST_ARRIVAL },
+        [arrival],
+        "2026-08-31",
+      ),
+    ).toEqual([]);
+    expect(
+      evaluatePolicy(
+        reservation({ requestedArrivalTime: afterLimit }),
+        { latestArrivalTime: FACILITY_LATEST_ARRIVAL },
+        [arrival],
+        "2026-08-31",
+      ),
+    ).not.toEqual([]);
+  });
+
   it("accepts different valid limits, with inclusive minute precision", () => {
     expect(validateBoundary({ latestArrivalTime: "21:37" })).toEqual([]);
     expect(evaluatePolicy(reservation({ requestedArrivalTime: "21:37" }), { latestArrivalTime: "21:37" }, [arrival], "2026-08-31")).toEqual([]);

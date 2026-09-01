@@ -20,73 +20,6 @@
 .core-app p {
   line-height: 1.8;
 }
-.core-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 24px 3.5vw;
-  border-bottom: 1px solid var(--border-soft);
-}
-.core-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font: 700 42px/1 var(--font-editorial);
-  letter-spacing: -0.06em;
-}
-.core-brand .brand-boundary {
-  height: 30px;
-  width: 9px;
-}
-.core-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
-.core-intro {
-  padding: 20px 3.5vw;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  border-bottom: 1px solid var(--border);
-}
-.core-intro p {
-  margin: 0;
-  font-family: var(--font-editorial);
-  font-size: 21px;
-  font-weight: 600;
-}
-.core-intro span {
-  color: var(--muted);
-  font-size: 13px;
-}
-.core-stages {
-  display: flex;
-  gap: 32px;
-  padding: 0 3.5vw;
-  border-bottom: 1px solid var(--border);
-}
-.core-stages button {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 22px 0 18px;
-  border: 0;
-  border-bottom: 3px solid transparent;
-  background: none;
-  cursor: pointer;
-  font-weight: 500;
-}
-.core-stages button span {
-  font-family: var(--font-editorial);
-  color: var(--muted);
-  font-size: 20px;
-}
-.core-stages [aria-current] {
-  border-bottom-color: var(--text);
-}
 .core-case-toolbar {
   display: flex;
   align-items: center;
@@ -408,18 +341,6 @@
   margin-top: 6px;
   white-space: pre-wrap;
 }
-.core-steps {
-  padding-left: 24px;
-  margin: 24px 0;
-}
-.core-steps > li {
-  padding: 18px 0 20px 8px;
-  border-top: 1px solid var(--border);
-}
-.core-steps > li::marker {
-  font-family: var(--font-editorial);
-  color: var(--muted);
-}
 .core-evidence {
   background: var(--rail);
   padding: 18px 20px;
@@ -433,9 +354,6 @@
 .core-evidence p {
   margin: 8px 0 0;
   white-space: pre-wrap;
-}
-.core-binding {
-  color: var(--success) !important;
 }
 .core-muted {
   color: var(--muted);
@@ -501,10 +419,6 @@
   margin-top: 5px;
   accent-color: var(--success);
 }
-.core-publish {
-  border-top: 1px solid var(--border);
-  padding: 26px 0;
-}
 .core-notice {
   padding: 18px 20px;
   margin: 22px 0;
@@ -559,17 +473,6 @@
 }
 .core-policy li {
   margin: 16px 0;
-}
-.core-connection {
-  border-top: 1px solid var(--border);
-  padding-top: 20px;
-}
-.core-connection details {
-  border-top: 0;
-  padding: 0;
-}
-.core-connection p {
-  overflow-wrap: anywhere;
 }
 .core-dialog {
   background: var(--bg);
@@ -628,9 +531,6 @@
 .core-start h1 {
   font-size: 36px;
 }
-.core-demo-picker {
-  padding-top: 28px;
-}
 .core-sr {
   position: absolute;
   width: 1px;
@@ -639,11 +539,6 @@
   clip-path: inset(50%);
 }
 @media (max-width: 900px) {
-  .core-intro {
-    align-items: start;
-    flex-direction: column;
-    gap: 8px;
-  }
   .core-case-toolbar {
     flex-wrap: wrap;
     gap: 16px;
@@ -671,43 +566,6 @@
   }
 }
 @media (max-width: 650px) {
-  .core-header {
-    padding: 18px 20px;
-    gap: 14px;
-    flex-wrap: wrap;
-  }
-  .core-brand {
-    font-size: 34px;
-  }
-  .core-header-actions {
-    gap: 14px;
-  }
-  .core-header .core-text {
-    font-size: 12px;
-  }
-  .core-intro {
-    padding: 18px 20px;
-  }
-  .core-intro p {
-    font-size: 18px;
-  }
-  .core-intro span {
-    font-size: 11px;
-  }
-  .core-stages {
-    gap: 0;
-    padding: 0 16px;
-    justify-content: space-between;
-  }
-  .core-stages button {
-    flex-direction: column;
-    gap: 3px;
-    padding: 12px 4px;
-    font-size: 12px;
-  }
-  .core-stages button span {
-    font-size: 16px;
-  }
   .core-case-toolbar {
     padding: 16px 20px;
     gap: 14px;

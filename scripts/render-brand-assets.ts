@@ -1,6 +1,7 @@
 import { chromium } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 type RenderTarget = {
   source: string;
@@ -9,7 +10,7 @@ type RenderTarget = {
   height: number;
 };
 
-const projectRoot = resolve(import.meta.dir, "..");
+const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 const targets: RenderTarget[] = [
   {
     source: "public/favicon.svg",

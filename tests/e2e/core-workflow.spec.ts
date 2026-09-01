@@ -38,7 +38,11 @@ test.beforeEach(async ({ page, context }) => {
   context.on("page", observePage);
   context.pages().forEach(observePage);
   await page.addInitScript(() => {
-    localStorage.setItem("teachback-ui-locale-v1", "en");
+    try {
+      localStorage.setItem("teachback-ui-locale-v1", "en");
+    } catch {
+      // Storage-unavailable tests must still reach the application's error UI.
+    }
     const tools: TestTools = Object.create(null);
     (window as TestWindow).__teachbackTestTools = tools;
     Object.defineProperty(document, "modelContext", {
@@ -308,6 +312,9 @@ test("prepares through WebMCP and applies exact changes only when a person appro
   expect(run.after.guestMessageDraft).not.toContain(source.guestDisplayName);
   await expect(page.getByRole("heading", { name: "Proposed changes", exact: true })).toBeVisible();
   await expect(page.locator(".core-diff")).toContainText(target.guestDisplayName);
+  await expect(page.locator(".core-diff").getByText("Case status", { exact: true })).toBeVisible();
+  await expect(page.locator(".core-diff").getByText("Unhandled", { exact: true })).toBeVisible();
+  await expect(page.locator(".core-diff").getByText("Handled", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Approve only · let agent apply", exact: true })).toHaveCount(0);
   await expect(page.getByText(/Tell the agent.*I approved it/)).toHaveCount(0);
   expect(run.status).toBe("awaiting_review");
@@ -437,32 +444,45 @@ test("uses only the recorded subset and returns the newest of two independently 
   expect(data(await tool<DemonstrationData>(page, "teachback_get_demonstration", { demonstration_id: first.demonstrationId })).caseId).toBe(source.id);
 });
 
-test("recovers a previously saved approval through the UI without asking an agent to apply it", async ({ page }) => {
-  await page.clock.install({ time: new Date("2026-08-31T10:00:00.000Z") });
-  await open(page);
-  const [source, target] = await cases(page);
-  const recording = await recordCase(page, source, true);
-  const published = await submitAndPublish(page, recording);
-  const run = await prepareCase(page, target, published);
-  const approved = await restorePreviouslyApprovedRun(page, run);
-  await expect(page.getByText("This exact proposal is approved", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Apply approved changes", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Approve and apply", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Approve only · let agent apply", exact: true })).toHaveCount(0);
-  await expect(page.getByText(/Tell the agent.*I approved it/)).toHaveCount(0);
-  expect(data(await tool<PreparedRun>(page, "teachback_get_run", { run_id: run.id }))).toEqual(approved);
-  expect((await saved(page)).reservations.find(row => row.id === target.id)).toEqual(run.before);
-  await page.getByRole("button", { name: "Apply approved changes", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Committed", exact: true })).toBeVisible();
-  const applied = data(await tool<PreparedRun>(page, "teachback_get_run", { run_id: run.id }));
-  expect(applied.status).toBe("committed");
-  expect(applied.approval).toEqual({ ...approved.approval, used: true });
-  const persisted = await saved(page);
-  expect(persisted.reservations.find(row => row.id === target.id)).toEqual(run.after);
-  expect(persisted.audit.filter(entry => entry.runId === run.id && entry.eventType === "run_approved")).toHaveLength(1);
-  expect(persisted.audit.find(entry => entry.runId === run.id && entry.eventType === "run_committed")?.actor).toBe("Human");
-  await page.reload(); await ready(page);
-  expect(data(await tool<PreparedRun>(page, "teachback_get_run", { run_id: run.id }))).toEqual(applied);
+test.describe("facility time-zone rendering", () => {
+  test.use({ timezoneId: "America/Los_Angeles" });
+
+  test("recovers a previously saved approval through the UI without asking an agent to apply it", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-08-31T10:00:00.000Z") });
+    await open(page);
+    expect(await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)).toBe("America/Los_Angeles");
+    const [source, target] = await cases(page);
+    const recording = await recordCase(page, source, true);
+    const published = await submitAndPublish(page, recording);
+    const run = await prepareCase(page, target, published);
+    const approved = await restorePreviouslyApprovedRun(page, run);
+    await expect(page.getByText("This exact proposal is approved", { exact: true })).toBeVisible();
+    await expect(page.getByText("Valid until: 07:05 PM", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Apply approved changes", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Approve and apply", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Approve only · let agent apply", exact: true })).toHaveCount(0);
+    await expect(page.getByText(/Tell the agent.*I approved it/)).toHaveCount(0);
+    expect(data(await tool<PreparedRun>(page, "teachback_get_run", { run_id: run.id }))).toEqual(approved);
+    expect((await saved(page)).reservations.find(row => row.id === target.id)).toEqual(run.before);
+    await page.getByRole("button", { name: "Apply approved changes", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Committed", exact: true })).toBeVisible();
+    const applied = data(await tool<PreparedRun>(page, "teachback_get_run", { run_id: run.id }));
+    expect(applied.status).toBe("committed");
+    expect(applied.approval).toEqual({ ...approved.approval, used: true });
+    const persisted = await saved(page);
+    expect(persisted.reservations.find(row => row.id === target.id)).toEqual(run.after);
+    expect(persisted.audit.filter(entry => entry.runId === run.id && entry.eventType === "run_approved")).toHaveLength(1);
+    const committedEvent = persisted.audit.find(entry => entry.runId === run.id && entry.eventType === "run_committed")!;
+    expect(committedEvent.actor).toBe("Human");
+    await workspace(page, "History");
+    const expectedAuditTime = await page.evaluate(
+      ({ at, timeZone }) => new Date(at).toLocaleString("en", { timeZone }),
+      { at: committedEvent.at, timeZone: persisted.timeZone },
+    );
+    await expect(page.locator(".core-audit time").first()).toHaveText(expectedAuditTime);
+    await page.reload(); await ready(page);
+    expect(data(await tool<PreparedRun>(page, "teachback_get_run", { run_id: run.id }))).toEqual(applied);
+  });
 });
 
 test("expires a restored approval without renewing it and requires a fresh unapproved proposal", async ({ page }) => {
@@ -529,6 +549,39 @@ test("surfaces failed saves and reset without losing already saved work", async 
   await page.reload(); await ready(page);
   await expect(page.getByRole("heading", { name: "Recording your work", exact: true })).toBeVisible();
   await expect(page.getByLabel("Handoff text", { exact: true })).toHaveValue("Saved work must survive a quota error.");
+});
+
+test("shows manual-copy guidance when the Clipboard API is missing or throws synchronously", async ({ page }) => {
+  await open(page);
+  const [source] = await cases(page);
+  await recordCase(page, source, true);
+  const copy = page.getByRole("button", { name: "Copy request for agent", exact: true });
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+  });
+  await copy.click();
+  await expect(page.getByRole("alert")).toHaveText("Select and copy the request above.");
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      get() { throw new DOMException("Clipboard blocked", "SecurityError"); },
+    });
+  });
+  await copy.click();
+  await expect(page.getByRole("alert")).toHaveText("Select and copy the request above.");
+});
+
+test("shows the saved-work error UI when acquiring localStorage throws", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() { throw new DOMException("Storage blocked", "SecurityError"); },
+    });
+  });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Saved work could not be loaded", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start recording", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => Object.keys((window as TestWindow).__teachbackTestTools ?? {}))).toEqual([]);
 });
 
 test("opens cases directly and keeps legacy records read-only in History", async ({ page }) => {

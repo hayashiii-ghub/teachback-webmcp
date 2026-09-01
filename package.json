@@ -11,7 +11,8 @@
     "render:brand": "bun scripts/render-brand-assets.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "bun run build && playwright test",
+    "test:e2e:public": "TEACHBACK_E2E_PUBLIC=1 playwright test",
     "check": "bun run test && bun run build"
   },
   "dependencies": {

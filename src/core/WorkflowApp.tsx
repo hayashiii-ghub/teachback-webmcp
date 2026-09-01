@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { DemoSession } from "../DemoSession";
-import { ArrowLeft, ArrowRight, CaretLeft, CaretRight, ClockCounterClockwise, Files, ListChecks, X, Circle, ArrowSquareOut } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, ArrowLeft, ArrowRight, CaretLeft, CaretRight, ClockCounterClockwise, Files, ListChecks, X, Circle, ArrowSquareOut } from "@phosphor-icons/react";
 import type {
   Demonstration,
   Operation,
@@ -18,7 +18,7 @@ import type {
   Reservation,
   Result,
 } from "./domain";
-import { createSessionStore } from "./persistence";
+import { createSessionStore, type SessionStorage } from "./persistence";
 import { createSession } from "./fixtures";
 import { createDraft } from "./teaching";
 import {
@@ -120,6 +120,29 @@ function initialLocale(): Locale {
   }
   return navigator.language.startsWith("ja") ? "ja" : "en";
 }
+const unavailableStorage: SessionStorage = {
+  getItem() { throw new Error("Browser storage is unavailable."); },
+  setItem() { throw new Error("Browser storage is unavailable."); },
+};
+function createBrowserSessionStore() {
+  let storage: SessionStorage;
+  try {
+    storage = window.localStorage;
+  } catch {
+    storage = unavailableStorage;
+  }
+  return createSessionStore(storage);
+}
+async function copyText(text: string): Promise<boolean> {
+  try {
+    const clipboard = navigator.clipboard;
+    if (!clipboard || typeof clipboard.writeText !== "function") return false;
+    await clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
 function resultText(result: Result, t: Translate) {
   const text: Record<string, string> = {
     PERSISTENCE_FAILED: t(
@@ -192,7 +215,7 @@ function statusText(
   return t("未対応", "Unhandled");
 }
 function Workspace() {
-  const [store] = useState(() => createSessionStore(localStorage));
+  const [store] = useState(createBrowserSessionStore);
   const state = useSyncExternalStore(
     store.subscribe,
     store.getSnapshot,
@@ -245,7 +268,7 @@ function Workspace() {
   const [clock, setClock] = useState(Date.now());
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
-  }, [view, procedureOpen, publishedKey, selectedDraftId, selectedId]);
+  }, [view, procedureOpen, publishedKey, selectedDraftId]);
   const load = store.getLoadStatus();
   const ready = load.kind === "ready";
   useEffect(() => {
@@ -271,10 +294,6 @@ function Workspace() {
       },
     );
   }, [store, ready]);
-  useEffect(() => {
-    const timer = setInterval(() => setClock(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
   useEffect(() => {
     const cancel = () => store.cancelPending();
     window.addEventListener("pagehide", cancel);
@@ -326,6 +345,18 @@ function Workspace() {
     run?.approval && Date.parse(run.approval.expiresAt) <= clock,
   );
   const active = run && ["awaiting_review", "approved"].includes(run.status);
+  useEffect(() => {
+    if (run?.status !== "approved" || !run.approval) return;
+    const expiresAt = Date.parse(run.approval.expiresAt);
+    if (!Number.isFinite(expiresAt)) return;
+    const remaining = expiresAt - Date.now();
+    if (remaining <= 0) {
+      setClock(Date.now());
+      return;
+    }
+    const timer = window.setTimeout(() => setClock(Date.now()), remaining);
+    return () => window.clearTimeout(timer);
+  }, [run?.id, run?.status, run?.approval?.expiresAt]);
   const filtered = state.reservations.filter((c) =>
     `${c.id} ${c.guestDisplayName}`
       .toLowerCase()
@@ -474,7 +505,8 @@ function Workspace() {
         <div className="workspace-sidebar-footer">
           {ready && <button className={`workspace-connection ${connection === "registered" ? "is-connected" : ""}`} onClick={() => setModal("connection")}>
             <Circle size={6} weight="fill" aria-hidden="true" />
-            <span>WebMCP {t(({ unavailable: "利用不可", registering: "接続中", registered: "接続済み", failed: "接続エラー" } as const)[connection], ({ unavailable: "unavailable", registering: "connecting", registered: "connected", failed: "error" } as const)[connection])}</span>
+            <span className="workspace-connection-short" aria-hidden="true">MCP</span>
+            <span className="workspace-connection-label">WebMCP {t(({ unavailable: "利用不可", registering: "接続中", registered: "接続済み", failed: "接続エラー" } as const)[connection], ({ unavailable: "unavailable", registering: "connecting", registered: "connected", failed: "error" } as const)[connection])}</span>
           </button>}
           <div
             className="language-switch"
@@ -497,7 +529,8 @@ function Workspace() {
             </button>
           </div>
           <button className="core-text workspace-reset" onClick={() => setModal("reset")} disabled={busy}>
-            {t("デモをリセット", "Reset demo")}
+            <ArrowCounterClockwise size={18} aria-hidden="true" />
+            <span>{t("デモをリセット", "Reset demo")}</span>
           </button>
         </div>
       </aside>
@@ -666,7 +699,7 @@ function Workspace() {
             </header>
             <p className="core-muted">{t("人とAgentの操作、条件の確認、承認・反映を記録しています。", "Recorded human and agent work, condition checks, approvals and applied changes.")}</p>
             {state.audit.length ? <ol className="core-audit">{state.audit.map(a => <li key={a.id}>
-              <div><strong>{a.actor === "Human" ? t("人", "Human") : a.actor === "Website" ? t("サイト", "Website") : "Agent"}</strong><time>{new Date(a.at).toLocaleString(locale)}</time></div>
+              <div><strong>{a.actor === "Human" ? t("人", "Human") : a.actor === "Website" ? t("サイト", "Website") : "Agent"}</strong><time>{new Date(a.at).toLocaleString(locale, { timeZone: state.timeZone })}</time></div>
               <p>{a.summary}</p>{a.caseId && <small>{a.caseId}</small>}
             </li>)}</ol> : <div className="workspace-empty"><ClockCounterClockwise size={32} aria-hidden="true" /><h2>{t("まだ操作履歴はありません", "No activity yet")}</h2><p>{t("案件への対応を始めると、ここに記録が残ります。", "Start working on a case to build its history here.")}</p></div>}
             {Object.keys(load.legacy).length > 0 && <div className="workspace-legacy">
@@ -790,19 +823,20 @@ function Workspace() {
                         <button
                           className="core-primary"
                           onClick={() => {
-                            void navigator.clipboard
-                              .writeText(ask)
-                              .then(() => setCopied(true))
-                              .catch(() =>
-                                setResult({
-                                  ok: false,
-                                  code: "COPY_FAILED",
-                                  summary: t(
-                                    "上の文を選択してコピーしてください。",
-                                    "Select and copy the request above.",
-                                  ),
-                                }),
-                              );
+                            void copyText(ask).then((copiedSuccessfully) => {
+                              if (copiedSuccessfully) {
+                                setCopied(true);
+                                return;
+                              }
+                              setResult({
+                                ok: false,
+                                code: "COPY_FAILED",
+                                summary: t(
+                                  "上の文を選択してコピーしてください。",
+                                  "Select and copy the request above.",
+                                ),
+                              });
+                            });
                           }}
                         >
                           {copied
@@ -848,6 +882,12 @@ function Workspace() {
                                 </span>
                               </div>
                             ))}
+                            <div>
+                              <strong>{t("案件状態", "Case status")}</strong>
+                              <span>{t("未対応", "Unhandled")}</span>
+                              <ArrowRight size={16} aria-hidden="true" />
+                              <span className="core-changed">{t("対応済み", "Handled")}</span>
+                            </div>
                           </div>
                           <p>
                             {run.status === "committed"
@@ -946,6 +986,7 @@ function Workspace() {
                             ).toLocaleTimeString(locale, {
                               hour: "2-digit",
                               minute: "2-digit",
+                              timeZone: state.timeZone,
                             })}
                           </p>
                           <p>

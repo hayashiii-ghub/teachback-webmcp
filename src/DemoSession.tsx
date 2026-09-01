@@ -40,7 +40,7 @@ export function DemoSession({ children }: { children: ReactNode }) {
       <p>{status === "busy"
         ? ja ? "保存内容を守るため、同時に操作できるのは1つのタブです。他のタブを閉じてから再読み込みしてください。" : "Only one tab can edit at a time to protect saved work. Close the other tab, then reload."
         : ja ? "タブ間の同時操作を防ぐ機能が必要です。対応するブラウザーで開き直してください。" : "A browser supporting Web Locks is required to protect saved work across tabs."}</p>
-      <button className="primary-action" onClick={() => window.location.reload()}>{ja ? "再読み込み" : "Reload"}</button>
+      <button onClick={() => window.location.reload()}>{ja ? "再読み込み" : "Reload"}</button>
     </main>
   );
 }

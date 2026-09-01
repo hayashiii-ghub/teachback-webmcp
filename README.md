@@ -87,7 +87,7 @@ Agentが利用できない場合も記録・確認・再利用は画面で操作
 | `webmcp.ts` | 型付きツール、再送制御、登録・解除 |
 | `RecordingPanel.tsx` / `PlaybookDraftEditor.tsx` | 実演と根拠の見える編集画面 |
 
-表内で省略したパスも `src/core/` 配下です。以前の `src/App.tsx` 等は既存の変更を失わないため保持し、新エントリからは使いません。
+表内で省略したパスも `src/core/` 配下です。旧固定デモの実装はGit履歴と `docs/legacy-demo-readme.md` に残し、現在の配信・テスト対象からは取り除いています。
 
 ## 保存と安全境界
 
@@ -110,9 +110,9 @@ bun run check
 bun run test:e2e
 ```
 
-単体テストは新旧両方を実行します。現エントリのE2Eは `tests/e2e/core-workflow.spec.ts` をdesktop/mobileで実行し、旧固定デモ向けのE2Eは参照用に保持しています。旧E2Eが現在の画面を通過したという意味ではありません。
+単体テストとE2Eは、現在の `src/core/` フローだけを実行します。E2Eは `tests/e2e/core-workflow.spec.ts` と `tests/e2e/core-appearance.spec.ts` をdesktop/mobileで検証します。
 
-E2Eは既定で4340番に専用サーバーを起動します。必要なら `TEACHBACK_E2E_URL` で変更できます。既存サーバーの再利用は `TEACHBACK_E2E_REUSE=1` を明示した場合のみです。
+`bun run test:e2e` は本番ビルド後、既定で4340番に専用サーバーを起動します。必要ならローカルの `TEACHBACK_E2E_URL` で変更できます。既存サーバーの再利用は `TEACHBACK_E2E_REUSE=1` を明示した場合のみです。公開URLを検査する場合は `TEACHBACK_E2E_URL=https://… bun run test:e2e:public` を使い、ローカルのビルドやサーバーを起動しません。
 
 人の操作をブラウザ自動化で通したQAと、実際の人が公開・承認した実演は区別します。利用者自身による記録・公開・承認は、WebMCPの反映ツールを外す前のローカル版で確認済みです。詳細と現在の契約の検証は[検証記録](docs/core-workflow-verification.md)を参照してください。
 
