@@ -32,15 +32,15 @@ unless the organizers explicitly permit it.
 
 ## 3. Repository and live release
 
-- [ ] commit the reviewed release candidate
-- [ ] push the final commit to public `main`
-- [ ] verify the repository signed out, including visible MIT license
-- [ ] deploy that exact commit
-- [ ] verify live HTML/assets with a cache-bypass request
-- [ ] verify live security/WebMCP headers
-- [ ] test English and Japanese desktop/mobile UI without console errors
-- [ ] discover all seven tools in a compatible clean browser
-- [ ] invoke the draft and preparation flow against a fresh live session
+- [x] commit the reviewed release candidate
+- [x] push the final commit to public `main`
+- [x] verify the repository signed out, including visible MIT license
+- [x] deploy that exact commit
+- [x] verify live HTML/assets with a cache-bypass request
+- [x] verify live security/WebMCP headers
+- [x] test English and Japanese desktop/mobile UI without console errors
+- [x] discover all seven tools in a compatible clean browser
+- [x] invoke the draft and preparation flow against a fresh live session
 
 ## 4. Devpost
 
