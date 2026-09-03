@@ -15,7 +15,7 @@ The five registered tools expose reading, drafting, preview preparation, and app
 
 ## Demo video
 
-Watch the **[94-second English demo on YouTube](https://youtu.be/E8-ijshSw_g)**. It follows Sofia → human-set boundary → Daniel → refusal → approval → application. The creator-approved video is public; the contest submission is still pending.
+Watch the **[94-second English demo on YouTube](https://youtu.be/E8-ijshSw_g)**. It follows Sofia → human-set boundary → Daniel → refusal → approval → application. This sentence originally described the entry as pending; the project was later submitted, as recorded in [the historical submission receipt](submission/SUBMISSION-STATUS.md).
 
 - [Final cut and proof timestamps](demo-script.md)
 - [English narration with final timing](video-shoot/SCRIPT.md)

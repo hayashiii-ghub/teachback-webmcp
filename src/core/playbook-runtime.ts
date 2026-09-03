@@ -9,6 +9,7 @@ import { resolveSteps } from "./playbook-schema";
 import { publishedContent } from "./teaching";
 
 export const APPROVAL_TTL_MS = 5 * 60 * 1000;
+export type ApprovalStatus = "none" | "valid" | "expired" | "invalid";
 type RuntimeActor = Extract<Actor, "Agent" | "Human">;
 interface Projection { before: Reservation; after: Reservation; commands: Command[]; exactDiff: ExactChange[] }
 type Clock = () => number;
@@ -24,8 +25,28 @@ function aborted<T>(state: SessionState, options: OperationOptions): Transition<
   return options.signal?.aborted ? failure(state, "OPERATION_ABORTED", "The operation was cancelled; no changes were saved.") : null;
 }
 
+function evolveWithAudit(state: SessionState, events: Omit<AuditEvent, "id" | "at">[], at = new Date().toISOString()): SessionState {
+  return evolve(state, {
+    audit: [
+      ...events.map(entry => ({ ...entry, id: crypto.randomUUID(), at })),
+      ...state.audit,
+    ],
+  });
+}
+
 function reject<T>(state: SessionState, actor: Actor, code: string, summary: string, fields: Partial<AuditEvent> = {}, issues?: Result<T>["issues"]): Transition<T> {
-  const next = evolve(state, {}, { actor, eventType: "run_rejected", summary, ...fields });
+  const events: Omit<AuditEvent, "id" | "at">[] = [
+    { actor, eventType: "run_rejected", summary, ...fields },
+  ];
+  if (code === "PLAYBOOK_NOT_APPLICABLE") {
+    events.unshift({
+      actor: "Website",
+      eventType: "run_policy_refused",
+      summary: "The website enforced the published boundary and returned this case to a person.",
+      ...fields,
+    });
+  }
+  const next = evolveWithAudit(state, events);
   return failure(next, code, summary, issues);
 }
 
@@ -102,14 +123,24 @@ function usableRun(state: SessionState, runId: string, expectedDigest: string): 
   return { ok: true, code: "RUN_FOUND", summary: "Proposal found.", data: run };
 }
 
-function approvalIssue(run: PreparedRun, now: number): Result | null {
+export function approvalStatus(run: PreparedRun, now: number = Date.now()): ApprovalStatus {
   const approval = run.approval;
-  if (run.status !== "approved" || !approval) return { ok: false, code: "RUN_NOT_APPROVED", summary: "A person must approve these exact changes before they can be applied." };
-  if (approval.runId !== run.id || approval.approvedDigest !== run.digest) return { ok: false, code: "DIGEST_MISMATCH", summary: "The approval does not match this exact proposal." };
+  if (run.status !== "approved" || !approval) return "none";
+  if (approval.used || approval.runId !== run.id || approval.approvedDigest !== run.digest) return "invalid";
   const expires = Date.parse(approval.expiresAt);
   const approved = Date.parse(approval.approvedAt);
-  if (!Number.isFinite(expires) || expires <= now) return { ok: false, code: "APPROVAL_EXPIRED", summary: "Approval expired. Prepare and review a new proposal." };
-  if (!Number.isFinite(approved) || approved > now || expires - approved !== APPROVAL_TTL_MS) {
+  if (!Number.isFinite(expires) || !Number.isFinite(approved)) return "invalid";
+  if (expires <= now) return "expired";
+  if (approved > now || expires - approved !== APPROVAL_TTL_MS) return "invalid";
+  return "valid";
+}
+
+function approvalIssue(run: PreparedRun, now: number): Result | null {
+  const status = approvalStatus(run, now);
+  if (status === "none") return { ok: false, code: "RUN_NOT_APPROVED", summary: "A person must approve these exact changes before they can be applied." };
+  if (status === "expired") return { ok: false, code: "APPROVAL_EXPIRED", summary: "Approval expired. Prepare and review a new proposal." };
+  if (status === "invalid") {
+    if (run.approval && (run.approval.runId !== run.id || run.approval.approvedDigest !== run.digest)) return { ok: false, code: "DIGEST_MISMATCH", summary: "The approval does not match this exact proposal." };
     return { ok: false, code: "RUN_NOT_APPROVED", summary: "The approval time is invalid. Prepare and review a new proposal." };
   }
   return null;
@@ -156,7 +187,27 @@ export async function prepareRun(state: SessionState, caseId: string, expectedCa
     if (previous.caseId === caseId && (previous.status === "awaiting_review" || previous.status === "approved")) runsById[id] = { ...previous, status: "stale", approval: null };
   }
   runsById[run.id] = run;
-  const next = evolve(state, { runsById, activeRunIdByCaseId: { ...state.activeRunIdByCaseId, [caseId]: run.id } }, { actor, eventType: "run_prepared", summary: "Prepared the published playbook's exact changes; awaiting human review.", ...fields, runId: run.id, at: new Date(clock()).toISOString() });
+  const at = new Date(clock()).toISOString();
+  const next = evolveWithAudit({
+    ...state,
+    runsById,
+    activeRunIdByCaseId: { ...state.activeRunIdByCaseId, [caseId]: run.id },
+  }, [
+    {
+      actor: "Website",
+      eventType: "run_policy_validated",
+      summary: "The website enforced the published boundary and generated the exact proposal. No changes were applied.",
+      ...fields,
+      runId: run.id,
+    },
+    {
+      actor,
+      eventType: "run_prepared",
+      summary: "Prepared the published playbook's exact changes; awaiting human review.",
+      ...fields,
+      runId: run.id,
+    },
+  ], at);
   return success(next, "RUN_PREPARED", "Changes are ready for review. The reservation has not been changed.", structuredClone(run));
 }
 

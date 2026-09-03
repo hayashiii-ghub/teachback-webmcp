@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { evolve, success } from "./common";
-import { createSessionStore, LEGACY_STORAGE_KEYS, SESSION_STORAGE_KEY, type SessionStorage } from "./persistence";
+import {
+  createSessionStore,
+  LEGACY_STORAGE_KEYS,
+  MAX_DRAFT_CHANGE_HISTORY,
+  MAX_SESSION_AUDIT_EVENTS,
+  MAX_SESSION_REQUESTS,
+  SESSION_STORAGE_KEY,
+  type SessionStorage,
+} from "./persistence";
 import { createSession } from "./fixtures";
 import { finishRecording, recordCommand, startRecording } from "./recording";
 import type { PreparedRun, Proposal, SessionState } from "./domain";
@@ -96,6 +104,82 @@ describe("single-key session storage", () => {
     expect(listener).not.toHaveBeenCalled();
     storage.setItem.mockImplementation((key, value) => { storage.records.set(key, value); });
     expect((await store.dispatch(state => startRecording(state, state.reservations[0].id))).ok).toBe(true);
+  });
+
+  it("stops unique request growth before browser storage is exhausted", async () => {
+    const receipt = { fingerprint: "a".repeat(64), result: { ok: false, code: "REFUSED", summary: "Recorded refusal" } };
+    const full = {
+      ...createSession(),
+      requests: Object.fromEntries(Array.from({ length: MAX_SESSION_REQUESTS }, (_, index) => [`request-${index}`, receipt])),
+    };
+    const raw = JSON.stringify(full);
+    const storage = memoryStorage({ [SESSION_STORAGE_KEY]: raw });
+    const store = createSessionStore(storage);
+    expect(store.getLoadStatus().kind).toBe("ready");
+    const before = store.getSnapshot();
+    const result = await store.dispatch(state => success(evolve(state, {
+      requests: { ...state.requests, overflow: receipt },
+    }), "SAVED", "Saved", null));
+    expect(result.code).toBe("SESSION_CAPACITY_REACHED");
+    expect(store.getSnapshot()).toBe(before);
+    expect(storage.records.get(SESSION_STORAGE_KEY)).toBe(raw);
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it("stops audit growth at the documented session capacity", async () => {
+    const event = { at: "2026-08-31T01:00:00.000Z", actor: "Website" as const, eventType: "capacity_test", summary: "Capacity test event." };
+    const full = {
+      ...createSession(),
+      audit: Array.from({ length: MAX_SESSION_AUDIT_EVENTS }, (_, index) => ({ ...event, id: `audit-${index}` })),
+    };
+    const raw = JSON.stringify(full);
+    const storage = memoryStorage({ [SESSION_STORAGE_KEY]: raw });
+    const store = createSessionStore(storage);
+    expect(store.getLoadStatus().kind).toBe("ready");
+    const before = store.getSnapshot();
+    const result = await store.dispatch(state => success(evolve(state, {
+      audit: [{ ...event, id: "audit-overflow" }, ...state.audit],
+    }), "SAVED", "Saved", null));
+    expect(result.code).toBe("SESSION_CAPACITY_REACHED");
+    expect(store.getSnapshot()).toBe(before);
+    expect(storage.records.get(SESSION_STORAGE_KEY)).toBe(raw);
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it("stops cumulative draft-history growth at the documented session capacity", async () => {
+    const fixture = await storedWorkflow();
+    const full = structuredClone(fixture.store.getSnapshot());
+    const change = {
+      at: "2026-08-31T01:01:00.000Z",
+      actor: "Agent" as const,
+      proposal: structuredClone(full.drafts[0].proposal),
+    };
+    full.drafts[0].changes = Array.from({ length: MAX_DRAFT_CHANGE_HISTORY }, () => structuredClone(change));
+    const raw = JSON.stringify(full);
+    const storage = memoryStorage({ [SESSION_STORAGE_KEY]: raw });
+    const store = createSessionStore(storage);
+    expect(store.getLoadStatus().kind).toBe("ready");
+    const before = store.getSnapshot();
+    const result = await store.dispatch(state => success(evolve(state, {
+      drafts: state.drafts.map((draft, index) => index === 0 ? { ...draft, changes: [...draft.changes, structuredClone(change)] } : draft),
+    }), "SAVED", "Saved", null));
+    expect(result.code).toBe("SESSION_CAPACITY_REACHED");
+    expect(store.getSnapshot()).toBe(before);
+    expect(storage.records.get(SESSION_STORAGE_KEY)).toBe(raw);
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it("returns INVALID_SESSION instead of throwing when an operation produces malformed collections", async () => {
+    const storage = memoryStorage();
+    const store = createSessionStore(storage);
+    const before = store.getSnapshot();
+    const result = await store.dispatch(state => ({
+      state: { ...state, drafts: undefined } as unknown as SessionState,
+      result: { ok: true, code: "MALFORMED", summary: "Must not be saved." },
+    }));
+    expect(result.code).toBe("INVALID_SESSION");
+    expect(store.getSnapshot()).toBe(before);
+    expect(storage.setItem).not.toHaveBeenCalled();
   });
 
   it("opens directly with legacy records archived, without importing or writing them", async () => {

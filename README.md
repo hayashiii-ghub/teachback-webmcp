@@ -1,13 +1,20 @@
 # Teachback
 
+> **Judge quick start (English):** [Open the live demo](https://teachback-webmcp.haygsiiii.chatgpt.site/) in ChatGPT's in-app browser or Chrome 149+ with WebMCP enabled. Switch to **EN**, open **Playbooks**, and select **Record the first response**. The complete WebMCP path and exact prompts are in [testing instructions](docs/submission-v2/TESTING.md). The repository includes the application, seven-tool implementation, tests, and documented source assets for the current 133-second video.
+
+**What it proves:** a person records real saved work; an agent reads that semantic evidence and authors a reusable draft through WebMCP; a person narrows and publishes the playbook; the agent prepares exact changes for a second case; the website refuses out-of-bound work. WebMCP cannot publish, approve, or apply changes.
+
 人が一件の対応を記録し、WebMCP対応Agentが再利用できる手順の草案を作り、人が確定した条件と承認の範囲で別案件へ適用するプロトタイプです。
 
-**現在の実装は「実演 → 草案 → 公開 → 再利用」フローです。YouTube動画と提出済みDevpostの説明は旧デモの記録で、現在の画面・ツール構成とは異なります。** 過去の説明は[旧デモのREADME](docs/legacy-demo-readme.md)に保存しています。
+**現在の実装は「実演 → 草案 → 公開 → 再利用」フローです。** 過去の説明は[旧デモのREADME](docs/legacy-demo-readme.md)に保存しています。
 
 - [実装計画](docs/implementation-plan-teachback-core.md)
 - [ローカル確認手順と検証記録](docs/core-workflow-verification.md)
 - [公開サイト](https://teachback-webmcp.haygsiiii.chatgpt.site/)
-- [以前の公開動画](https://www.youtube.com/watch?v=E8-ijshSw_g)
+- [133秒の応募動画](https://www.youtube.com/watch?v=dqei8azzFZo)
+- [最新版の撮影台本](docs/video-shoot-v2/SHOOTING-SCRIPT.md)
+- [現行の提出パッケージ](docs/submission-v2/README.md)
+- [133秒動画の編集ソース](videos/teachback-reshoot-v2/README.md)
 
 ## ローカル起動
 
@@ -64,7 +71,7 @@ WebMCPの役割は、**記録から草案を作ることと、別案件への変
 | `teachback_prepare_run` | 明示した予約と公開版から変更案を作る |
 | `teachback_get_run` | 保存された変更案と、画面での反映結果を読む |
 
-草案の更新が競合した場合、`DRAFT_CONFLICT` の `data` に最新の草案を返します。Agentは人の修正を確認し、最新の `revision` と新しい `request_id` で再提出します。同じリクエストの再送は同じ結果を返し、別の草案を選択しません。
+草案の更新が競合した場合、`DRAFT_CONFLICT` の `data` に `id`、`revision`、`proposal`、`validationIssues` と出典メタデータを含む最新のcompact draftを返します。Agentは人の修正を確認し、最新の `revision` と新しい `request_id` で再提出します。同じリクエストの再送は同じ結果を返し、別の草案を選択しません。
 
 公開・承認・反映・生の予約変更用ツールはありません。`teachback_commit_run` は公開ツールから外しました。準備は選択中の画面ではなく、明示したIDを対象にします。Agentが別予約の変更案を準備した場合は、その予約へ移る案内を表示します。
 

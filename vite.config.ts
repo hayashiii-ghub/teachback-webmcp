@@ -2,12 +2,7 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 import { sites } from "@openai/sites-vite-plugin";
 import vinext from "vinext";
 import { defineConfig } from "vite";
-
-const webMcpHeaders = {
-  "Origin-Agent-Cluster": "?1",
-  "Permissions-Policy": "tools=(self)",
-  "X-Content-Type-Options": "nosniff",
-};
+import { SECURITY_HEADERS } from "./security-headers.ts";
 
 export default defineConfig({
   plugins: [
@@ -18,15 +13,16 @@ export default defineConfig({
       config: {
         main: "./worker/index.ts",
         compatibility_flags: ["nodejs_compat"],
+        assets: { binding: "ASSETS" },
       },
     }),
   ],
   server: {
     host: "127.0.0.1",
-    headers: webMcpHeaders,
+    headers: SECURITY_HEADERS,
   },
   preview: {
     host: "127.0.0.1",
-    headers: webMcpHeaders,
+    headers: SECURITY_HEADERS,
   },
 });

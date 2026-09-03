@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title description">
+  <title id="title">Teachback — WebMCP Challenge 2026</title>
+  <desc id="description">One handled case. A human-governed playbook.</desc>
+  <defs>
+    <filter id="paper" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="3" seed="27" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+
+  <rect width="1920" height="1080" fill="#171512"/>
+  <rect width="1920" height="1080" fill="#fbfaf6" filter="url(#paper)" opacity="0.032"/>
+
+  <text x="960" y="184" text-anchor="middle" fill="#d8d0c3" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="27" font-weight="600" letter-spacing="7">WEBMCP CHALLENGE 2026</text>
+
+  <g transform="translate(522 275) scale(2.55)">
+    <text x="8" y="68" fill="#fbfaf6" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="68" font-weight="600" letter-spacing="-3">Teachback</text>
+    <path fill="none" stroke="#d83427" stroke-width="5" d="M333 15h15v56h-15"/>
+  </g>
+
+  <path d="M810 565H1110" stroke="#a54436" stroke-width="3"/>
+
+  <text x="960" y="718" text-anchor="middle" fill="#fbfaf6" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="65" font-weight="400" letter-spacing="-1.5">One handled case.</text>
+  <text x="960" y="804" text-anchor="middle" fill="#fbfaf6" font-family="Iowan Old Style, Baskerville, Georgia, serif" font-size="65" font-weight="400" letter-spacing="-1.5">A human-governed playbook.</text>
+</svg>

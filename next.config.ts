@@ -1,8 +1,6 @@
-const securityHeaders = [
-  { key: "Origin-Agent-Cluster", value: "?1" },
-  { key: "Permissions-Policy", value: "tools=(self)" },
-  { key: "X-Content-Type-Options", value: "nosniff" },
-];
+import { SECURITY_HEADERS } from "./security-headers";
+
+const securityHeaders = Object.entries(SECURITY_HEADERS).map(([key, value]) => ({ key, value }));
 
 export default {
   async headers() {

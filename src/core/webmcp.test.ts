@@ -82,6 +82,8 @@ describe("WebMCP core contracts using the real persisted store", () => {
     expect(created.code).toBe("DRAFT_CREATED");
     expect(store.getSnapshot().revision).toBe(beforeRevision + 1);
     expect(store.getSnapshot().requests["draft-1"].fingerprint).toMatch(/^[a-f\d]{64}$/);
+    expect(store.getSnapshot().requests["draft-1"].result.data).not.toHaveProperty("changes");
+    expect(store.getSnapshot().requests["draft-1"].result.data).not.toHaveProperty("originalProposal");
     expect(JSON.parse(storage.data.get(SESSION_STORAGE_KEY)!).drafts[0].id).toBe(created.data.id);
     const reopened = createSessionStore(storage);
     expect(reopened.getLoadStatus().kind).toBe("ready");
@@ -91,6 +93,41 @@ describe("WebMCP core contracts using the real persisted store", () => {
     expect(reopened.getSnapshot().drafts).toHaveLength(1);
     expect(storage.setItem).toHaveBeenCalledTimes(writes);
     expect((await call(createCoreTools(reopened), "create_draft", { ...input, proposal: { ...input.proposal, name: "Different content" } })).code).toBe("REQUEST_CONFLICT");
+  });
+
+  it("keeps repeated large draft-update receipts compact instead of copying cumulative history", async () => {
+    const storage = memoryStorage(); const store = createSessionStore(storage); const tools = createCoreTools(store);
+    const input = await draftInput(store);
+    const largeProposal = {
+      ...input.proposal,
+      purpose: "P".repeat(500),
+      unresolvedQuestions: Array.from({ length: 10 }, (_, index) => `${index}-${"Q".repeat(490)}`),
+    };
+    const created = await call(tools, "create_draft", { ...input, proposal: largeProposal });
+    expect(created.code).toBe("DRAFT_CREATED");
+    let revision = created.data.revision as number;
+    for (let index = 0; index < 50; index += 1) {
+      const updated = await call(tools, "update_draft", {
+        draft_id: created.data.id,
+        expected_revision: revision,
+        request_id: `large-update-${index}`,
+        proposal: { ...largeProposal, name: `Recorded arrival ${index}` },
+      });
+      expect(updated.code).toBe("DRAFT_UPDATED");
+      expect(updated.data).not.toHaveProperty("changes");
+      expect(updated.data).not.toHaveProperty("originalProposal");
+      revision = updated.data.revision;
+    }
+    expect(store.getSnapshot().drafts[0].changes).toHaveLength(50);
+    expect(new TextEncoder().encode(storage.data.get(SESSION_STORAGE_KEY)!).byteLength).toBeLessThan(2_000_000);
+    const retried = await call(createCoreTools(createSessionStore(storage)), "update_draft", {
+      draft_id: created.data.id,
+      expected_revision: revision - 1,
+      request_id: "large-update-49",
+      proposal: { ...largeProposal, name: "Recorded arrival 49" },
+    });
+    expect(retried.data).not.toHaveProperty("changes");
+    expect(retried.data.revision).toBe(revision);
   });
 
   it("reports the returned draft ID on creation, update, and an older idempotent retry", async () => {
@@ -193,7 +230,9 @@ describe("WebMCP core contracts using the real persisted store", () => {
     expect((await call(resumedTools, "update_draft", { ...retry, request_id: staleInput.request_id })).code).toBe("REQUEST_CONFLICT");
     const updated = await call(resumedTools, "update_draft", retry);
     expect(updated).toMatchObject({ ok: true, code: "DRAFT_UPDATED", data: { revision: 3, proposal: { name: "Agent clarification", proposedBoundary: { latestArrivalTime: "21:55" } } } });
-    expect(updated.data.changes.map((change: { actor: string }) => change.actor)).toEqual(["Human", "Agent"]);
+    expect(updated.data).not.toHaveProperty("changes");
+    expect(updated.data).not.toHaveProperty("originalProposal");
+    expect(reopened.getSnapshot().drafts[0].changes.map(change => change.actor)).toEqual(["Human", "Agent"]);
     expect(reopened.getSnapshot().playbooks).toHaveLength(0);
     expect(resumedTools).toHaveLength(7);
     expect(tool(resumedTools, "update_draft").description).toMatch(/DRAFT_CONFLICT.*data.*new request_id/);
@@ -234,6 +273,8 @@ describe("WebMCP core contracts using the real persisted store", () => {
   });
 
   it("cannot apply through any registered tool even after human approval, but reads the human-applied result", async () => {
+    const now = Date.parse("2026-08-31T08:00:00.000Z");
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
     const storage = memoryStorage(); const store = createSessionStore(storage); const tools = createCoreTools(store);
     const created = await call(tools, "create_draft", await draftInput(store));
     const published = await store.dispatch(state => publishDraft(state, created.data.id, created.data.revision, true));
@@ -252,6 +293,26 @@ describe("WebMCP core contracts using the real persisted store", () => {
     expect((await call(tools, "list_cases", { status: "approved" })).data.cases[0].id).toBe("R-2048");
     expect((await call(tools, "get_run", { run_id: prepared.data.id })).data.status).toBe("approved");
     expect(store.getSnapshot()).toEqual(approved);
+
+    clock.mockReturnValue(Date.parse(approved.runsById[prepared.data.id].approval!.expiresAt) + 1);
+    const expiredCases = await call(tools, "list_cases", { status: "approval_expired" });
+    expect(expiredCases.data.cases).toEqual([
+      expect.objectContaining({ id: "R-2048", workflow_status: "approval_expired", active_run_id: prepared.data.id }),
+    ]);
+    expect((await call(tools, "list_cases", { status: "awaiting_review" })).data.cases).toEqual([]);
+    clock.mockReturnValue(now);
+
+    const invalid = structuredClone(approved);
+    invalid.runsById[prepared.data.id].approval!.approvedAt = "2026-08-31T07:59:00.000Z";
+    const invalidTools = createCoreTools({
+      getSnapshot: () => invalid,
+      dispatch: store.dispatch,
+    });
+    expect((await call(invalidTools, "list_cases", { status: "approval_invalid" })).data.cases).toEqual([
+      expect.objectContaining({ id: "R-2048", workflow_status: "approval_invalid", active_run_id: prepared.data.id }),
+    ]);
+    expect((await call(invalidTools, "list_cases", { status: "approved" })).data.cases).toEqual([]);
+    expect((await call(invalidTools, "get_run", { run_id: prepared.data.id })).code).toBe("RUN_NOT_APPROVED");
 
     // The website invokes the internal runtime after the person's action. It is
     // intentionally not reachable through the WebMCP adapter.
@@ -277,6 +338,7 @@ describe("WebMCP core contracts using the real persisted store", () => {
     expect(rejected.code).toBe("PLAYBOOK_NOT_APPLICABLE");
     expect(store.getSnapshot().reservations).toEqual(before);
     expect(Object.keys(store.getSnapshot().runsById)).toHaveLength(0);
+    expect(store.getSnapshot().audit.find(event => event.eventType === "run_policy_refused")).toMatchObject({ actor: "Website", caseId: "R-2060" });
     const reopened = createSessionStore(storage);
     expect(reopened.getLoadStatus().kind).toBe("ready");
     const writes = storage.setItem.mock.calls.length;

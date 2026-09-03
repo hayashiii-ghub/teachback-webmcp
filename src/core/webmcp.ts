@@ -1,9 +1,9 @@
-import type { Operation, Result, SessionState } from "./domain";
+import type { Operation, PlaybookDraft, Result, SessionState, Transition } from "./domain";
 import { digest, failure, success } from "./common";
 import { demonstrationDigest, demonstrationPayload, DEMONSTRATION_PAYLOAD_LIMIT } from "./recording";
 import { PROPOSAL_SCHEMA, validateProposalInput } from "./playbook-schema";
 import { createDraft, updateDraft } from "./teaching";
-import { getRun, prepareRun } from "./playbook-runtime";
+import { approvalStatus, getRun, prepareRun } from "./playbook-runtime";
 
 export type ConnectionStatus = "unavailable" | "registering" | "registered" | "failed";
 export interface SiteCall { name: string; code: string; at: string; ok: boolean; draftId?: string }
@@ -41,6 +41,21 @@ async function requestOnce(state: SessionState, name: string, input: Record<stri
   // The result and deduplication entry are one persisted transition, including
   // business refusals. Retrying a changed request requires a new request ID.
   return { ...next, state: { ...next.state, revision: state.revision + 1, requests: { ...next.state.requests, [requestId]: { fingerprint, result: structuredClone(next.result) } } } };
+}
+
+type DraftToolData = Pick<PlaybookDraft, "id" | "revision" | "sourceDemonstrationId" | "sourceDigest" | "proposal" | "createdBy" | "validationIssues" | "publishedPlaybookId" | "basedOn">;
+
+/** Keep idempotency receipts bounded: the canonical draft owns history. */
+function compactDraftTransition(transition: Transition<PlaybookDraft>): Transition<DraftToolData> {
+  if (!transition.result.data) return transition as Transition<DraftToolData>;
+  const { id, revision, sourceDemonstrationId, sourceDigest, proposal, createdBy, validationIssues, publishedPlaybookId, basedOn } = transition.result.data;
+  return {
+    state: transition.state,
+    result: {
+      ...transition.result,
+      data: structuredClone({ id, revision, sourceDemonstrationId, sourceDigest, proposal, createdBy, validationIssues, publishedPlaybookId, ...(basedOn ? { basedOn } : {}) }),
+    },
+  };
 }
 
 function combineSignals(signals: (AbortSignal | undefined)[]) {
@@ -86,19 +101,19 @@ export function createCoreTools(store: ToolStore, onCall?: (call: SiteCall) => v
       if (new TextEncoder().encode(JSON.stringify(result)).byteLength > DEMONSTRATION_PAYLOAD_LIMIT) return failure(state, "DEMONSTRATION_TOO_LARGE", "The demonstration output exceeds the 16 KiB limit; it has not been truncated.");
       return { state, result };
     }),
-    tool("teachback_create_draft", "Submit YOUR proposed steps, evidence, variable bindings and boundary from a completed recording. Use case-field references for recorded guest names/times. Reproduce recorded wording without adding operations. This only creates a draft for human review and publication in the website, never publishes or changes a reservation.", { demonstration_id: id, source_digest: hash, request_id: id, proposal: PROPOSAL_SCHEMA }, ["demonstration_id", "source_digest", "request_id", "proposal"], false, (i, s, signal) => createDraft(s, i.demonstration_id as string, i.source_digest as string, i.proposal, "Agent", { signal }), true),
-    tool("teachback_update_draft", "Replace a draft proposal using its current revision. Same validation as create. On DRAFT_CONFLICT, data contains the latest draft: review data.proposal, preserve human edits, and retry with data.revision and a new request_id. Cannot publish, approve or apply changes. Return the draft and unresolved questions to the human for review and publication in the website.", { draft_id: id, expected_revision: version, request_id: id, proposal: PROPOSAL_SCHEMA }, ["draft_id", "expected_revision", "request_id", "proposal"], false, (i, s, signal) => updateDraft(s, i.draft_id as string, i.expected_revision as number, i.proposal, "Agent", { signal }), true),
+    tool("teachback_create_draft", "Submit YOUR proposed steps, evidence, variable bindings and boundary from a completed recording. Use case-field references for recorded guest names/times. Reproduce recorded wording without adding operations. This only creates a draft for human review and publication in the website, never publishes or changes a reservation.", { demonstration_id: id, source_digest: hash, request_id: id, proposal: PROPOSAL_SCHEMA }, ["demonstration_id", "source_digest", "request_id", "proposal"], false, async (i, s, signal) => compactDraftTransition(await createDraft(s, i.demonstration_id as string, i.source_digest as string, i.proposal, "Agent", { signal })), true),
+    tool("teachback_update_draft", "Replace a draft proposal using its current revision. Same validation as create. On DRAFT_CONFLICT, data contains the latest compact draft: review data.proposal, preserve human edits, and retry with data.revision and a new request_id. Cannot publish, approve or apply changes. Return the draft proposal and unresolved questions to the human for review and publication in the website.", { draft_id: id, expected_revision: version, request_id: id, proposal: PROPOSAL_SCHEMA }, ["draft_id", "expected_revision", "request_id", "proposal"], false, async (i, s, signal) => compactDraftTransition(await updateDraft(s, i.draft_id as string, i.expected_revision as number, i.proposal, "Agent", { signal })), true),
     tool("teachback_list_playbooks", "List immutable human-published playbooks and their actual steps, versions and boundaries. Drafts are not executable.", pagination, [], true, (i, s) => {
       const start = Number(i.cursor ?? 0), limit = Number(i.limit ?? 10);
       return success(s, "PLAYBOOKS", "Human-published playbooks.", { playbooks: s.playbooks.slice(start, start + limit), next_cursor: start + limit < s.playbooks.length ? String(start + limit) : null });
     }),
-    tool("teachback_list_cases", "List synthetic workspace cases and their versions. Explicit IDs target preparation; current UI selection is not an authorization boundary. Approval and application belong to the human in the website, not the agent.", { ...pagination, status: { type: "string", enum: ["unhandled", "handled", "awaiting_review", "approved"] } }, [], true, (i, s) => {
+    tool("teachback_list_cases", "List synthetic workspace cases and their versions. Explicit IDs target preparation; current UI selection is not an authorization boundary. Approval and application belong to the human in the website, not the agent. An approval_expired or approval_invalid case must be discarded and prepared again before it can be applied.", { ...pagination, status: { type: "string", enum: ["unhandled", "handled", "awaiting_review", "approved", "approval_expired", "approval_invalid"] } }, [], true, (i, s) => {
       const cases = s.reservations.map(c => {
         const runId = s.activeRunIdByCaseId[c.id];
         const run = runId ? s.runsById[runId] : undefined;
         const liveRun = run && run.caseId === c.id && (run.status === "awaiting_review" || run.status === "approved") ? run : undefined;
-        const approved = liveRun?.status === "approved" && liveRun.approval && !liveRun.approval.used && Date.parse(liveRun.approval.expiresAt) > Date.now();
-        return { ...c, workflow_status: c.handled ? "handled" : liveRun ? approved ? "approved" : "awaiting_review" : "unhandled", active_run_id: c.handled ? null : liveRun?.id ?? null };
+        const approval = liveRun ? approvalStatus(liveRun, Date.now()) : "none";
+        return { ...c, workflow_status: c.handled ? "handled" : approval === "expired" ? "approval_expired" : approval === "invalid" ? "approval_invalid" : liveRun ? approval === "valid" ? "approved" : "awaiting_review" : "unhandled", active_run_id: c.handled ? null : liveRun?.id ?? null };
       });
       const filtered = i.status ? cases.filter(c => c.workflow_status === i.status) : cases;
       const start = Number(i.cursor ?? 0), limit = Number(i.limit ?? 10);

@@ -1,0 +1,20 @@
+<template>
+  <style>
+    #root{position:relative;width:1920px;height:1080px;overflow:hidden;background:#fbfaf6}
+    .ground{position:absolute;inset:0;background:#fbfaf6}
+    .viewport{position:absolute;inset:0 0 180px 0;overflow:hidden}
+    .world{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:50% 50%;will-change:transform}
+    .screen{position:absolute;inset:0;width:1920px;height:1080px;object-fit:cover}
+  </style>
+  <div data-hf-id="hf-8czy" id="root" data-composition-id="reuse" data-width="1920" data-height="1080" data-duration="21.5">
+    <div data-hf-id="hf-bzph" id="reuse-ground" class="ground clip" data-start="0" data-duration="21.5" data-track-index="1"></div>
+    <div data-hf-id="hf-rhem" class="viewport"><div data-hf-id="hf-8ub6" id="reuse-world" class="world" data-layout-allow-overflow="">
+      <video data-hf-id="hf-de43" id="reuse-published" class="clip screen" src="assets/captures/take-c-human-review-publish.mp4" data-start="0" data-duration="3" data-media-start="60" data-track-index="0" muted playsinline preload="auto"></video>
+      <video data-hf-id="hf-i3j3" id="reuse-emma" class="clip screen" src="assets/captures/take-d-agent-prepare-emma.mp4" data-start="3" data-duration="4.5" data-media-start="0" data-track-index="0" muted playsinline preload="auto"></video>
+      <video data-hf-id="hf-26ad" id="reuse-playbook" class="clip screen" src="assets/captures/take-d-agent-prepare-emma.mp4" data-start="7.5" data-duration="4" data-media-start="7" data-track-index="0" muted playsinline preload="auto"></video>
+      <video data-hf-id="hf-ky3w" id="reuse-tool" class="clip screen" src="assets/captures/take-d-agent-prepare-emma.mp4" data-start="11.5" data-duration="6" data-media-start="12.5" data-track-index="0" muted playsinline preload="auto"></video>
+      <video data-hf-id="hf-9w37" id="reuse-proposal" class="clip screen" src="assets/captures/take-d-agent-prepare-emma.mp4" data-start="17.5" data-duration="4" data-media-start="82" data-track-index="0" muted playsinline preload="auto"></video>
+    </div></div>
+  </div>
+  <script>(()=>{const world=document.getElementById("reuse-world");gsap.set(world,{scale:.834,x:0,y:-90});const tl=gsap.timeline({paused:true});tl.to(world,{scale:1.12,x:-110,y:-130,duration:1.05,ease:"power2.inOut"},7.65);tl.to(world,{scale:1.34,x:-8,y:-35,duration:1.05,ease:"power2.inOut"},11.65);tl.to(world,{scale:.834,x:0,y:-90,duration:1.05,ease:"power2.inOut"},16.5);tl.to(world,{scale:1.12,x:-250,y:-155,duration:1.05,ease:"power2.inOut"},18.3);window.__timelines=window.__timelines||{};window.__timelines.reuse=tl;})();</script>
+</template>

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { digest } from "./common";
 import type { PlaybookStep, PreparedRun, PublishedPlaybook, Reservation, SessionState, Transition } from "./domain";
-import { approveRun, commitRun, discardRun, getRun, prepareRun } from "./playbook-runtime";
+import { approvalStatus, approveRun, commitRun, discardRun, getRun, prepareRun } from "./playbook-runtime";
 import { publishedContent } from "./teaching";
 
 const NOW = "2026-08-31T08:00:00.000Z";
@@ -90,7 +90,8 @@ describe("recorded-playbook runtime", () => {
     expect(run.approval).toBeNull();
     expect(run.digest).toMatch(/^[a-f0-9]{64}$/);
     expect(transition.state.activeRunIdByCaseId[initial.target.id]).toBe(run.id);
-    expect(transition.state.audit[0]).toMatchObject({ actor: "Agent", eventType: "run_prepared", caseId: initial.target.id, runId: run.id });
+    expect(transition.state.audit.find(event => event.eventType === "run_prepared")).toMatchObject({ actor: "Agent", caseId: initial.target.id, runId: run.id });
+    expect(transition.state.audit.find(event => event.eventType === "run_policy_validated")).toMatchObject({ actor: "Website", caseId: initial.target.id, runId: run.id });
   });
 
   it("does not add meal or message actions to an arrival-and-handoff playbook", async () => {
@@ -257,13 +258,36 @@ describe("recorded-playbook runtime", () => {
     expect(expired.state.runsById[run.id].approval).toEqual(first.state.runsById[run.id].approval);
   });
 
-  it.each(["2026-08-31T08:05:00.000Z", "invalid"]) ("rejects expired or malformed approval expiry %s", async expiry => {
+  it.each([
+    ["2026-08-31T08:05:00.000Z", "APPROVAL_EXPIRED"],
+    ["invalid", "RUN_NOT_APPROVED"],
+  ] as const) ("rejects expired or malformed approval expiry %s", async (expiry, code) => {
     const { state, run } = await prepared();
     const approved = approveRun(state, run.id, run.digest, opts);
     if (expiry === "invalid") approved.state.runsById[run.id].approval!.expiresAt = expiry;
     const committed = await commitRun(approved.state, run.id, run.digest, "Agent", { now: "2026-08-31T08:05:00.000Z" });
-    expect(committed.result.code).toBe("APPROVAL_EXPIRED");
+    expect(committed.result.code).toBe(code);
     expect(committed.state.reservations).toEqual(state.reservations);
+  });
+
+  it("classifies the exact approval contract consistently for UI, tools and runtime", async () => {
+    const { state, run } = await prepared();
+    const approved = approveRun(state, run.id, run.digest, opts).state.runsById[run.id];
+    expect(approvalStatus(approved, Date.parse(NOW))).toBe("valid");
+    expect(approvalStatus(approved, Date.parse(approved.approval!.expiresAt))).toBe("expired");
+
+    const cases: Array<(copy: PreparedRun) => void> = [
+      copy => { copy.approval!.approvedDigest = "wrong"; },
+      copy => { copy.approval!.runId = "another-run"; },
+      copy => { copy.approval!.approvedAt = "2026-08-31T07:59:00.000Z"; },
+      copy => { copy.approval!.used = true; },
+    ];
+    for (const mutate of cases) {
+      const copy = structuredClone(approved);
+      mutate(copy);
+      expect(approvalStatus(copy, Date.parse(NOW))).toBe("invalid");
+    }
+    expect(approvalStatus(approved, Date.parse(NOW) - 1)).toBe("invalid");
   });
 
   it("rechecks the approval clock after asynchronous hashing", async () => {

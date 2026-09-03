@@ -1,0 +1,26 @@
+<template>
+  <style>
+    @font-face{font-family:"Iowan Old Style";src:local("Iowan Old Style Roman"),local("IowanOldStyle-Roman");font-style:normal;font-weight:400 600}
+    #root{position:relative;width:1920px;height:1080px;overflow:hidden;background:#fbfaf6;color:#111}
+    .visuals{position:absolute;inset:0 0 180px 0;display:grid;grid-template-columns:1fr 1fr 1fr;background:#111;gap:2px}
+    .visual{position:relative;overflow:hidden;background:#111}
+    .visual img{width:100%;height:100%;object-fit:cover;opacity:.24;filter:grayscale(.4) sepia(.12)}
+    .wash{position:absolute;inset:0;background:linear-gradient(180deg,rgba(251,250,246,.52),rgba(251,250,246,.9))}
+    .lockup{position:absolute;left:0;right:0;top:450px;transform:translateY(-50%);text-align:center}
+    .logo{width:510px;height:auto}
+    .principles{display:flex;justify-content:center;gap:34px;margin-top:54px;font-family:"Iowan Old Style",Georgia,serif;font-size:42px;line-height:1.15}
+    .principle{padding:20px 29px 23px;border-top:2px solid rgba(17,17,17,.22)}
+    .principle:nth-child(2){color:#a54436;border-color:#a54436}
+    .principle:nth-child(3){color:#4e705e;border-color:#4e705e}
+  </style>
+  <div data-hf-id="hf-46yh" id="root" data-composition-id="outro" data-width="1920" data-height="1080" data-duration="8.5">
+    <div data-hf-id="hf-xtun" class="visuals">
+      <div data-hf-id="hf-tick" class="visual"><img data-hf-id="hf-pvik" src="assets/captures/still-recorded.png" alt="Recorded human work"></div>
+      <div data-hf-id="hf-sbfg" class="visual"><img data-hf-id="hf-msnz" src="assets/captures/still-published.png" alt="Published playbook"></div>
+      <div data-hf-id="hf-r4id" class="visual"><img data-hf-id="hf-adhc" src="assets/captures/still-committed.png" alt="Committed approved run"></div>
+      <div data-hf-id="hf-7h0d" class="wash"></div>
+    </div>
+    <div data-hf-id="hf-6jvi" class="lockup"><img data-hf-id="hf-2w9p" id="outro-logo" class="logo" src="assets/logo/teachback.svg" alt="Teachback"><div data-hf-id="hf-1xxb" class="principles"><div data-hf-id="hf-ynru" id="p1" class="principle">Structured guidance</div><div data-hf-id="hf-6j7x" id="p2" class="principle">WebMCP draft</div><div data-hf-id="hf-fpbr" id="p3" class="principle">Human control</div></div></div>
+  </div>
+  <script>(()=>{const tl=gsap.timeline({paused:true});tl.fromTo("#outro-logo",{opacity:0,y:18},{opacity:1,y:0,duration:.7,ease:"power2.out"},.2);tl.fromTo("#p1",{opacity:0,y:18},{opacity:1,y:0,duration:.55,ease:"power2.out"},1.15);tl.fromTo("#p2",{opacity:0,y:18},{opacity:1,y:0,duration:.55,ease:"power2.out"},3.25);tl.fromTo("#p3",{opacity:0,y:18},{opacity:1,y:0,duration:.55,ease:"power2.out"},5.45);window.__timelines=window.__timelines||{};window.__timelines.outro=tl;})();</script>
+</template>

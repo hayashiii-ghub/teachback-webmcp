@@ -734,6 +734,7 @@ test("rejects out-of-bound requests through both UI and tools without changing r
   const state = await saved(page);
   expect(state.runsById).toEqual({});
   expect(state.audit.filter(entry => entry.eventType === "run_rejected").map(entry => entry.actor)).toEqual(expect.arrayContaining(["Human", "Agent"]));
+  expect(state.audit.filter(entry => entry.eventType === "run_policy_refused").map(entry => entry.actor)).toEqual(expect.arrayContaining(["Website"]));
 });
 
 test("keeps the current record visible with zero search results and blocks switching its case", async ({ page }) => {

@@ -14,4 +14,8 @@ design-qa.md
 ui-audit-*.md
 *.log
 .DS_Store
-videos/
+# Keep legacy video workspaces local. The current source edit is tracked;
+# its own .gitignore excludes caches, snapshots, dependencies, and renders.
+videos/*
+!videos/teachback-reshoot-v2/
+!videos/teachback-reshoot-v2/**

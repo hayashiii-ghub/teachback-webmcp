@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920,height=1080">
+    <title>Teachback — recorded-work reshoot</title>
+    <script src="assets/vendor/gsap.min.js"></script>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: #fbfaf6; }
+      #main-root { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #fbfaf6; }
+      .scene { position: absolute; inset: 0; width: 1920px; height: 1080px; z-index: 1; }
+      .actor-pill, .proof-pill {
+        position: absolute;
+        top: 913px;
+        z-index: 60;
+        display: flex;
+        align-items: center;
+        color: #5f5a53;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        line-height: 1.2;
+      }
+      .actor-pill {
+        left: 56px;
+        gap: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+      }
+      .actor-pill::before {
+        content: "";
+        flex: 0 0 26px;
+        width: 26px;
+        height: 1px;
+        background: currentColor;
+      }
+      .actor-pill.agent { color: #57241d; }
+      .actor-pill.website { color: #4e705e; }
+      .proof-pill {
+        display: block;
+        right: 56px;
+        max-width: 1120px;
+        padding: 0;
+        color: #383531;
+        font-size: 16px;
+        font-weight: 500;
+        letter-spacing: .01em;
+        text-align: right;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .captions { z-index: 50; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-xhyk" id="main-root" data-composition-id="main" data-width="1920" data-height="1080" data-duration="133">
+      <div data-hf-id="hf-bcb3" id="scene-intro" class="scene clip" data-composition-id="intro" data-composition-src="compositions/intro.html" data-start="0" data-duration="5.4" data-width="1920" data-height="1080" data-track-index="1"></div>
+      <div data-hf-id="hf-bkoa" id="scene-record" class="scene clip" data-composition-id="record" data-composition-src="compositions/record.html" data-start="5.4" data-duration="12.8" data-width="1920" data-height="1080" data-track-index="1"></div>
+      <div data-hf-id="hf-5mw5" id="scene-evidence" class="scene clip" data-composition-id="evidence" data-composition-src="compositions/evidence.html" data-start="18.2" data-duration="7.8" data-width="1920" data-height="1080" data-track-index="1"></div>
+      <div data-hf-id="hf-ne4z" id="scene-agent-draft" class="scene clip" data-composition-id="agent-draft" data-composition-src="compositions/agent-draft.html" data-start="26" data-duration="22.2" data-width="1920" data-height="1080" data-track-index="1"></div>
+      <div data-hf-id="hf-2l15" id="scene-human-review" class="scene clip" data-composition-id="human-review" data-composition-src="compositions/human-review.html" data-start="48.2" data-duration="17.8" data-width="1920" data-height="1080" data-track-index="1"></div>
+      <div data-hf-id="hf-mvtg" id="scene-reuse" class="scene clip" data-composition-id="reuse" data-composition-src="compositions/reuse.html" data-start="66" data-duration="21.5" data-width="1920" data-height="1080" data-track-index="1"></div>
+      <div data-hf-id="hf-u7v0" id="scene-apply-audit" class="scene clip" data-composition-id="apply-audit" data-composition-src="compositions/apply-audit.html" data-start="87.5" data-duration="26" data-width="1920" data-height="1080" data-track-index="1"></div>
+      <div data-hf-id="hf-tzdl" id="scene-refusal" class="scene clip" data-composition-id="refusal" data-composition-src="compositions/refusal.html" data-start="113.5" data-duration="11" data-width="1920" data-height="1080" data-track-index="1"></div>
+      <div data-hf-id="hf-7a8x" id="scene-outro" class="scene clip" data-composition-id="outro" data-composition-src="compositions/outro.html" data-start="124.5" data-duration="8.5" data-width="1920" data-height="1080" data-track-index="1"></div>
+
+      <div data-hf-id="hf-fq3a" id="actor-human-record" class="actor-pill clip" data-start="5.4" data-duration="12.75" data-track-index="4">Human</div>
+      <div data-hf-id="hf-mpug" id="actor-website-evidence" class="actor-pill website clip" data-start="18.2" data-duration="7.8" data-track-index="4">Website</div>
+      <div data-hf-id="hf-kqrx" id="actor-agent-draft" class="actor-pill agent clip" data-start="26" data-duration="22.2" data-track-index="4">Agent</div>
+      <div data-hf-id="hf-rel5" id="actor-human-review" class="actor-pill clip" data-start="48.2" data-duration="25.3" data-track-index="4">Human</div>
+      <div data-hf-id="hf-7b7b" id="actor-agent-prepare" class="actor-pill agent clip" data-start="73.5" data-duration="14" data-track-index="4">Agent</div>
+      <div data-hf-id="hf-wt07" id="actor-human-apply" class="actor-pill clip" data-start="87.5" data-duration="16" data-track-index="4">Human</div>
+      <div data-hf-id="hf-h0f1" id="actor-agent-read" class="actor-pill agent clip" data-start="103.5" data-duration="14.1" data-track-index="4">Agent</div>
+      <div data-hf-id="hf-02oc" id="actor-website-refuse" class="actor-pill website clip" data-start="117.6" data-duration="6.9" data-track-index="4">Website</div>
+
+      <div data-hf-id="hf-ec5u" id="proof-synthetic" class="proof-pill clip" data-start="0" data-duration="5.4" data-track-index="5">Synthetic challenge data</div>
+      <div data-hf-id="hf-j8zj" id="proof-record" class="proof-pill clip" data-start="5.4" data-duration="12.75" data-track-index="5">4 saved operations</div>
+      <div data-hf-id="hf-t5ib" id="proof-evidence" class="proof-pill clip" data-start="18.2" data-duration="7.8" data-track-index="5">Commands · exact diffs · evidence IDs</div>
+      <div data-hf-id="hf-uy6v" id="proof-get" class="proof-pill clip" data-start="26" data-duration="8" data-track-index="5">teachback_get_demonstration → DEMONSTRATION_FOUND</div>
+      <div data-hf-id="hf-waaa" id="proof-draft" class="proof-pill clip" data-start="34" data-duration="14.2" data-track-index="5">teachback_create_draft → DRAFT_CREATED</div>
+      <div data-hf-id="hf-a4gt" id="proof-boundary" class="proof-pill clip" data-start="48.2" data-duration="12.8" data-track-index="5">Aiko / 21:30 → Guest name / Requested arrival</div>
+      <div data-hf-id="hf-ljq5" id="proof-publish" class="proof-pill clip" data-start="61" data-duration="12.5" data-track-index="5">22:00 → 21:45 · Published by a person</div>
+      <div data-hf-id="hf-9r4y" id="proof-prepare" class="proof-pill clip" data-start="73.5" data-duration="14" data-track-index="5">teachback_prepare_run → RUN_PREPARED</div>
+      <div data-hf-id="hf-0ukl" id="proof-apply" class="proof-pill clip" data-start="87.5" data-duration="16" data-track-index="5">Approve and apply · human action</div>
+      <div data-hf-id="hf-de2d" id="proof-committed" class="proof-pill clip" data-start="103.5" data-duration="10" data-track-index="5">teachback_get_run → status: committed</div>
+      <div data-hf-id="hf-vkv0" id="proof-refusal" class="proof-pill clip" data-start="113.5" data-duration="11" data-track-index="5">PLAYBOOK_NOT_APPLICABLE · compensation → person</div>
+
+      <div data-hf-id="hf-wa27" id="scene-captions" class="scene clip captions" data-composition-id="captions" data-composition-src="compositions/captions.html" data-start="0" data-duration="133" data-width="1920" data-height="1080" data-track-index="8"></div>
+
+      <audio data-hf-id="hf-r3qx" id="voice-01" src="assets/voice/01.mp3" data-audio-group="voiceover" data-start="0.3" data-duration="4.911" data-track-index="10" data-volume="1"></audio>
+      <audio data-hf-id="hf-iz1j" id="voice-02" src="assets/voice/02.mp3" data-audio-group="voiceover" data-start="5.8" data-duration="12.225281" data-track-index="10" data-volume="1"></audio>
+      <audio data-hf-id="hf-awhb" id="voice-03" src="assets/voice/03.mp3" data-audio-group="voiceover" data-start="19.1" data-duration="6.635094" data-track-index="10" data-volume="1"></audio>
+      <audio data-hf-id="hf-cxb0" id="voice-04" src="assets/voice/04.mp3" data-audio-group="voiceover" data-start="26.4" data-duration="6.635094" data-track-index="10" data-volume="1"></audio>
+      <audio data-hf-id="hf-xh0p" id="voice-05" src="assets/voice/05.mp3" data-audio-group="voiceover" data-start="34.4" data-duration="13.035094" data-track-index="10" data-volume="1"></audio>
+      <audio data-hf-id="hf-arap" id="voice-06" src="assets/voice/06.mp3" data-audio-group="voiceover" data-start="48.6" data-duration="12.382031" data-track-index="10" data-volume="1"></audio>
+      <audio data-hf-id="hf-33la" id="voice-07" src="assets/voice/07.mp3" data-audio-group="voiceover" data-start="66.4" data-duration="6.24325" data-track-index="10" data-volume="1"></audio>
+      <audio data-hf-id="hf-pix4" id="voice-08" src="assets/voice/08.mp3" data-audio-group="voiceover" data-start="73.9" data-duration="11.833469" data-track-index="10" data-volume="1"></audio>
+      <audio data-hf-id="hf-kexv" id="voice-09" src="assets/voice/09.mp3" data-audio-group="voiceover" data-start="87.9" data-duration="12.904469" data-track-index="10" data-volume="1"></audio>
+      <audio data-hf-id="hf-7a9t" id="voice-10" src="assets/voice/10.mp3" data-audio-group="voiceover" data-start="103.9" data-duration="8.176313" data-track-index="10" data-volume="1"></audio>
+      <audio data-hf-id="hf-x18t" id="voice-11" src="assets/voice/11.mp3" data-audio-group="voiceover" data-start="113.9" data-duration="8.071813" data-track-index="10" data-volume="1"></audio>
+      <audio data-hf-id="hf-sx6f" id="voice-12" src="assets/voice/12.mp3" data-audio-group="voiceover" data-start="124.6" data-duration="8.124063" data-track-index="10" data-volume="1"></audio>
+
+      <audio data-hf-id="hf-ssrv" id="click-record" src="assets/sfx/click-soft.wav" data-start="6.2" data-duration="0.37" data-track-index="20" data-volume="0.569049"></audio>
+      <audio data-hf-id="hf-nxvj" id="click-publish" src="assets/sfx/click-soft.wav" data-start="64.8" data-duration="0.37" data-track-index="20" data-volume="0.569049"></audio>
+      <audio data-hf-id="hf-o13s" id="click-approve" src="assets/sfx/click-soft.wav" data-start="90.4" data-duration="0.37" data-track-index="20" data-volume="0.569049"></audio>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines.main = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>

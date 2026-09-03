@@ -1,0 +1,44 @@
+{
+  "source": "videos/teachback-reshoot-v2/index.html",
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "files": [
+    {
+      "file": "01-recorded-evidence.png",
+      "timestampSeconds": 22.1,
+      "frame": 663,
+      "sha256": "0058b7e20f6a59b1a93d3016ed72e9b45a02650822febde94d2520af28a689a0"
+    },
+    {
+      "file": "02-agent-draft.png",
+      "timestampSeconds": 41.1,
+      "frame": 1233,
+      "sha256": "f8135d27f58087e1d7c3610db9397216888fa5edf392e02816cdb2d067b5e28d"
+    },
+    {
+      "file": "03-human-boundary.png",
+      "timestampSeconds": 54.6,
+      "frame": 1638,
+      "sha256": "8f622872312c560f8964b776c4672dfd60da2c49f3e8d71bf61ddfcbf337ef87"
+    },
+    {
+      "file": "04-prepared-not-applied.png",
+      "timestampSeconds": 83,
+      "frame": 2490,
+      "sha256": "181b596dd24047e123a629ed903fb69860e95239d23144e40fe77d9b707f720c"
+    },
+    {
+      "file": "05-human-approved-commit.png",
+      "timestampSeconds": 95.5,
+      "frame": 2865,
+      "sha256": "9fdbc87fadb1734f3ebda21f89b07501254f2d18f2ab32847e196e8d3ff2a8e3"
+    },
+    {
+      "file": "06-website-refusal.png",
+      "timestampSeconds": 119,
+      "frame": 3570,
+      "sha256": "6b210da3312f5b5773b34c230429aa568cae46f5867de89b4a503defdc808264"
+    }
+  ]
+}

@@ -22,6 +22,7 @@ import { createSessionStore, type SessionStorage } from "./persistence";
 import { createSession } from "./fixtures";
 import { createDraft } from "./teaching";
 import {
+  approvalStatus,
   approveRun,
   commitRun,
   discardRun,
@@ -153,6 +154,10 @@ function resultText(result: Result, t: Translate) {
       "別の処理を実行中です。完了してから再試行してください。",
       result.summary,
     ),
+    SESSION_CAPACITY_REACHED: t(
+      "このデモセッションの記録上限に達しました。履歴から退避した後、明示的に新しいセッションを開始してください。既存の内容は変更していません。",
+      result.summary,
+    ),
     RUN_NOT_APPROVED: t(
       "まだ承認されていません。変更内容を確認し、画面から承認してください。",
       result.summary,
@@ -202,13 +207,12 @@ function statusText(
   t: Translate,
 ) {
   if (c.handled) return t("対応済み", "Handled");
-  if (
-    run?.status === "approved" &&
-    run.approval &&
-    Date.parse(run.approval.expiresAt) <= Date.now()
-  )
+  const approval = run ? approvalStatus(run) : "none";
+  if (approval === "expired")
     return t("承認期限切れ・再確認", "Approval expired · review again");
-  if (run?.status === "approved")
+  if (approval === "invalid")
+    return t("承認が無効・再作成", "Approval invalid · prepare again");
+  if (approval === "valid")
     return t("承認済み・反映待ち", "Approved · awaiting application");
   if (run?.status === "awaiting_review")
     return t("変更案の確認待ち", "Awaiting review");
@@ -265,7 +269,7 @@ function Workspace() {
     (item) => item.id === latestAgentEvent?.caseId,
   );
   const [copied, setCopied] = useState(false);
-  const [clock, setClock] = useState(Date.now());
+  const [, setClock] = useState(Date.now());
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [view, procedureOpen, publishedKey, selectedDraftId]);
@@ -341,9 +345,9 @@ function Workspace() {
       ? runPlaybook
       : (state.playbooks.find((p) => `${p.id}:${p.version}` === playbookKey) ??
         state.playbooks.at(-1));
-  const expired = Boolean(
-    run?.approval && Date.parse(run.approval.expiresAt) <= clock,
-  );
+  const currentApprovalStatus = run ? approvalStatus(run, Date.now()) : "none";
+  const expired = currentApprovalStatus === "expired";
+  const invalidApproval = currentApprovalStatus === "invalid";
   const active = run && ["awaiting_review", "approved"].includes(run.status);
   useEffect(() => {
     if (run?.status !== "approved" || !run.approval) return;
@@ -506,7 +510,7 @@ function Workspace() {
           {ready && <button className={`workspace-connection ${connection === "registered" ? "is-connected" : ""}`} onClick={() => setModal("connection")}>
             <Circle size={6} weight="fill" aria-hidden="true" />
             <span className="workspace-connection-short" aria-hidden="true">MCP</span>
-            <span className="workspace-connection-label">WebMCP {t(({ unavailable: "利用不可", registering: "接続中", registered: "接続済み", failed: "接続エラー" } as const)[connection], ({ unavailable: "unavailable", registering: "connecting", registered: "connected", failed: "error" } as const)[connection])}</span>
+            <span className="workspace-connection-label">WebMCP {t(({ unavailable: "利用不可", registering: "登録中", registered: "ツール登録済み", failed: "登録エラー" } as const)[connection], ({ unavailable: "unavailable", registering: "registering", registered: "tools registered", failed: "registration error" } as const)[connection])}</span>
           </button>}
           <div
             className="language-switch"
@@ -969,9 +973,11 @@ function Workspace() {
                       <p className="core-eyebrow">
                         {expired
                           ? t("承認期限切れ", "Approval expired")
+                          : invalidApproval
+                            ? t("承認が無効です", "Approval is invalid")
                           : statusText(c, run, t)}
                       </p>
-                      {run.status === "approved" && !expired && (
+                      {run.status === "approved" && currentApprovalStatus === "valid" && (
                         <>
                           <p className="core-success">
                             {t(
@@ -1043,11 +1049,11 @@ function Workspace() {
                           </button>
                         </>
                       )}
-                      {expired && (
+                      {(expired || invalidApproval) && (
                         <p>
                           {t(
-                            "破棄して変更案を作り直してください。以前の承認は引き継がれません。",
-                            "Discard and prepare a fresh proposal. The previous approval will not carry over.",
+                            invalidApproval ? "承認情報を検証できません。破棄して変更案を作り直してください。" : "破棄して変更案を作り直してください。以前の承認は引き継がれません。",
+                            invalidApproval ? "The approval could not be verified. Discard it and prepare a fresh proposal." : "Discard and prepare a fresh proposal. The previous approval will not carry over.",
                           )}
                         </p>
                       )}

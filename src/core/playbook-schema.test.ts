@@ -108,6 +108,39 @@ describe("agent proposal structure and semantics", () => {
     handoff.input.template = [{ kind: "literal", value: "The meal is ready." }];
     expect(proposalIssues(proposal, demo, "2026-08-31").map(issue => issue.code)).not.toContain("SOURCE_VALUE_NOT_PARAMETERIZED");
   });
+  it.each([
+    ["source-unseeded", "Case source-unseeded arrives later."],
+    ["2026-08-31", "Arrival date: 2026-08-31."],
+    ["2026/08/31", "Arrival date: 2026/08/31."],
+    ["17:00", "The original arrival was 17:00."],
+    ["17時", "当初は17時の予定でした。"],
+    ["17時00分", "当初は17時00分の予定でした。"],
+    ["午後5時", "当初は午後5時の予定でした。"],
+  ])("flags a source-specific identifier, date, or planned time left in reusable text: %s", (_value, literal) => {
+    const { demo, proposal } = example();
+    const handoff = proposal.steps[1]; if (handoff.type !== "add_shift_handoff") throw new Error("Invalid fixture");
+    handoff.input.template = [{ kind: "literal", value: literal }, { kind: "case_field", field: "guestDisplayName" }, { kind: "literal", value: " arrives at " }, { kind: "case_field", field: "requestedArrivalTime" }, { kind: "literal", value: "." }];
+    demo.after.shiftHandoff = `${literal}${demo.before.guestDisplayName} arrives at ${demo.before.requestedArrivalTime}.`;
+    demo.commands[1].command = { type: "add_shift_handoff", input: { text: demo.after.shiftHandoff } };
+    expect(proposalIssues(proposal, demo, "2026-08-31").map(issue => issue.code)).toContain("SOURCE_VALUE_NOT_PARAMETERIZED");
+  });
+  it("does not treat a duration as the source arrival time", () => {
+    const { demo, proposal } = example();
+    const handoff = proposal.steps[1]; if (handoff.type !== "add_shift_handoff") throw new Error("Invalid fixture");
+    handoff.input.template = [{ kind: "literal", value: "受付業務は17時間続きます。" }];
+    expect(proposalIssues(proposal, demo, "2026-08-31").map(issue => issue.code)).not.toContain("SOURCE_VALUE_NOT_PARAMETERIZED");
+  });
+  it.each([
+    ["Daniel Kim", "Kim arrives at "],
+    ["May Li", "Dear Li, your arrival is "],
+  ])("flags a short final name component left as literal text: %s", (source, literal) => {
+    const { demo, proposal } = example(); demo.before.guestDisplayName = source;
+    const handoff = proposal.steps[1]; if (handoff.type !== "add_shift_handoff") throw new Error("Invalid fixture");
+    handoff.input.template = [{ kind: "literal", value: literal }, { kind: "case_field", field: "requestedArrivalTime" }, { kind: "literal", value: "." }];
+    demo.after.shiftHandoff = `${literal}${demo.before.requestedArrivalTime}.`;
+    demo.commands[1].command = { type: "add_shift_handoff", input: { text: demo.after.shiftHandoff } };
+    expect(proposalIssues(proposal, demo, "2026-08-31").map(issue => issue.code)).toContain("SOURCE_VALUE_NOT_PARAMETERIZED");
+  });
   it.each(["Alex arrives at ", "Rivera arrives at ", "ALEX arrives at "])("flags a clear source name component left as literal text: %s", literal => {
     const { demo, proposal } = example();
     const handoff = proposal.steps[1]; if (handoff.type !== "add_shift_handoff") throw new Error("Invalid fixture");

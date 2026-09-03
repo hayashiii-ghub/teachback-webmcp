@@ -1,0 +1,10 @@
+{
+  "name": "teachback-reshoot-v2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes hyperframes@0.8.27 preview",
+    "check": "npx --yes hyperframes@0.8.27 check",
+    "render": "npx --yes hyperframes@0.8.27 render -o renders/Teachback-WebMCP-133s-English-v2.mp4 --quality high --strict --no-best-effort --video-frame-format png"
+  }
+}

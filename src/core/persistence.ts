@@ -7,6 +7,9 @@ import { validateProposalInput } from "./playbook-schema";
 export const SESSION_STORAGE_KEY = "teachback-session-v1";
 export const LEGACY_STORAGE_KEYS = ["teachback-demo-v1", "teachback-teaching-v4", "teachback-teaching-scenario-version"] as const;
 const MAX_SESSION_BYTES = 16 * 1_024 * 1_024;
+export const MAX_SESSION_REQUESTS = 500;
+export const MAX_SESSION_AUDIT_EVENTS = 2_000;
+export const MAX_DRAFT_CHANGE_HISTORY = 500;
 export type SessionStorage = Pick<Storage, "getItem" | "setItem">;
 export interface SessionLoadStatus {
   kind: "ready" | "error";
@@ -198,6 +201,10 @@ export function createSessionStore(storage: SessionStorage, initial: SessionStat
 
   function persist(next: SessionState, checkExpected: boolean): Result {
     if (!isSessionState(next)) return error("INVALID_SESSION", "The change produced invalid state; nothing was saved.");
+    const draftChangeCount = next.drafts.reduce((count, item) => count + item.changes.length, 0);
+    if (Object.keys(next.requests).length > MAX_SESSION_REQUESTS || next.audit.length > MAX_SESSION_AUDIT_EVENTS || draftChangeCount > MAX_DRAFT_CHANGE_HISTORY) {
+      return error("SESSION_CAPACITY_REACHED", "This demo session has reached its activity limit. Export it from History, then explicitly start a new session; existing work is unchanged.");
+    }
     let encoded: string;
     try {
       encoded = JSON.stringify(next);

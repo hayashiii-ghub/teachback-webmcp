@@ -1,0 +1,18 @@
+<template>
+  <style>
+    #root{position:relative;width:1920px;height:1080px;overflow:hidden;background:#fbfaf6}
+    .ground{position:absolute;inset:0;background:#fbfaf6}
+    .viewport{position:absolute;inset:0 0 180px 0;overflow:hidden}
+    .world{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:50% 50%;will-change:transform}
+    .screen{position:absolute;inset:0;width:1920px;height:1080px;object-fit:cover}
+  </style>
+  <div data-hf-id="hf-wv8y" id="root" data-composition-id="record" data-width="1920" data-height="1080" data-duration="12.8">
+    <div data-hf-id="hf-1wl7" id="record-ground" class="ground clip" data-start="0" data-duration="12.8" data-track-index="1"></div>
+    <div data-hf-id="hf-rhem" class="viewport"><div data-hf-id="hf-azhn" id="record-world" class="world" data-layout-allow-overflow="">
+      <video data-hf-id="hf-b0y6" id="record-start" class="clip screen" src="assets/captures/take-a-human-recording.mp4" data-start="0" data-duration="2.6" data-media-start="2.4" data-track-index="0" muted playsinline preload="auto"></video>
+      <video data-hf-id="hf-mjqn" id="record-arrival" class="clip screen" src="assets/captures/take-a-human-recording.mp4" data-start="2.6" data-duration="4.2" data-media-start="15.8" data-track-index="0" muted playsinline preload="auto"></video>
+      <img data-hf-id="hf-ei04" id="record-complete" class="clip screen" src="assets/captures/still-recorded.png" data-start="6.8" data-duration="6" data-track-index="0" alt="Completed recording with four saved operations">
+    </div></div>
+  </div>
+  <script>(()=>{const world=document.getElementById("record-world");gsap.set(world,{scale:.834,x:0,y:-90});const tl=gsap.timeline({paused:true});tl.to(world,{scale:1.1,x:-60,y:-150,duration:1,ease:"power2.inOut"},2.8);tl.to(world,{scale:.834,x:0,y:-90,duration:1,ease:"power2.inOut"},6.1);window.__timelines=window.__timelines||{};window.__timelines.record=tl;})();</script>
+</template>

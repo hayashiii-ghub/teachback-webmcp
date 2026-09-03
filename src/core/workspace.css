@@ -203,16 +203,16 @@
 }
 @media (max-width: 650px) {
   .core-app { --workspace-sidebar-width: 0px; }
-  .workspace-sidebar { position: static; inset: auto; width: 100%; padding: 10px 16px 0; border-right: 0; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: minmax(0, 1fr) 44px auto 44px; column-gap: 4px; align-items: center; overflow: visible; }
-  .workspace-logo { display: flex; align-items: center; min-width: 0; width: 100%; max-width: 110px; min-height: 44px; aspect-ratio: auto; margin: 0; }
+  .workspace-sidebar { position: static; inset: auto; width: 100%; padding: 10px 16px 0; border-right: 0; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: center; overflow: visible; }
+  .workspace-logo { display: flex; align-items: center; grid-row: 1; grid-column: 1; min-width: 0; width: 100%; max-width: 110px; min-height: 44px; aspect-ratio: auto; margin: 0; }
   .workspace-logo img { width: 145%; margin: 0; }
-  .workspace-sidebar-footer { display: contents; }
-  .workspace-connection { grid-row: 1; grid-column: 2; justify-content: center; min-width: 44px; min-height: 44px; padding: 0; gap: 4px; }
+  .workspace-sidebar-footer { grid-row: 1; grid-column: 2; display: grid; grid-template-columns: 44px auto 44px; column-gap: 4px; align-items: center; margin: 0; padding: 0; }
+  .workspace-connection { grid-row: 1; grid-column: 1; justify-content: center; min-width: 44px; min-height: 44px; padding: 0; gap: 4px; }
   .workspace-connection-short { display: inline; font-size: 10px; font-weight: 600; letter-spacing: .02em; }
   .workspace-connection-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .workspace-sidebar-footer .language-switch { grid-row: 1; grid-column: 3; }
+  .workspace-sidebar-footer .language-switch { grid-row: 1; grid-column: 2; }
   .workspace-sidebar-footer .language-switch button { min-height: 44px; padding: 5px 7px; font-size: 11px; }
-  .workspace-reset { display: inline-flex; align-items: center; justify-content: center; grid-row: 1; grid-column: 4; min-width: 44px; min-height: 44px; padding: 0; }
+  .workspace-reset { display: inline-flex; align-items: center; justify-content: center; grid-row: 1; grid-column: 3; min-width: 44px; min-height: 44px; padding: 0; }
   .workspace-reset svg { display: block; }
   .workspace-reset span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .workspace-nav { grid-row: 2; grid-column: 1/-1; display: flex; gap: 14px; padding-top: 8px; }

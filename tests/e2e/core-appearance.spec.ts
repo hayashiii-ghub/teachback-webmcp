@@ -20,11 +20,34 @@ test.beforeEach(async ({ page }) => {
   });
   await page.goto("/");
   await expect(page.getByRole("navigation", { name: "Main navigation", exact: true })).toBeVisible();
-  await expect(page.locator(".workspace-connection")).toHaveAccessibleName("WebMCP connected");
+  await expect(page.locator(".workspace-connection")).toHaveAccessibleName("WebMCP tools registered");
 });
 
 test.afterEach(async ({ page }) => {
   expect(browserErrors.get(page) ?? [], "No page errors or console.error during the appearance flow").toEqual([]);
+});
+
+test("serves the WebMCP and browser security headers without blocking hydration", async ({ page }) => {
+  const response = await page.request.get("/");
+  expect(response.headers()["permissions-policy"]).toBe("tools=(self)");
+  expect(response.headers()["origin-agent-cluster"]).toBe("?1");
+  expect(response.headers()["referrer-policy"]).toBe("no-referrer");
+  expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(response.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(response.headers()["content-security-policy"]).toContain("object-src 'none'");
+  const logoResponse = await page.request.get("/logo.svg");
+  expect(logoResponse.ok(), "The public logo asset is served").toBe(true);
+  expect(logoResponse.headers()["content-type"]).toContain("image/svg+xml");
+  expect((await logoResponse.body()).byteLength, "The public logo asset is not empty").toBeGreaterThan(100);
+  await expect(page.getByRole("navigation", { name: "Main navigation", exact: true })).toBeVisible();
+  const logoDimensions = await page.locator(".workspace-logo img").evaluate((image: HTMLImageElement) => ({
+    complete: image.complete,
+    width: image.naturalWidth,
+    height: image.naturalHeight,
+  }));
+  expect(logoDimensions.complete, "The workspace logo finished loading").toBe(true);
+  expect(logoDimensions.width, "The workspace logo decoded").toBeGreaterThan(0);
+  expect(logoDimensions.height, "The workspace logo decoded").toBeGreaterThan(0);
 });
 
 async function expectFontRole(locator: Locator, role: "editorial" | "ui") {
@@ -94,7 +117,7 @@ test("keeps navigation, connection status and recording fields within narrow and
           await expect(icon).toHaveAttribute("aria-hidden", "true");
         }
         const connection = page.locator(".workspace-connection");
-        await expect(connection).toHaveAccessibleName(locale === "en" ? "WebMCP connected" : "WebMCP 接続済み");
+        await expect(connection).toHaveAccessibleName(locale === "en" ? "WebMCP tools registered" : "WebMCP ツール登録済み");
         if (width <= 650) {
           await expect(connection.locator(".workspace-connection-short")).toBeVisible();
           await expect(connection.locator(".workspace-connection-short")).toHaveText("MCP");

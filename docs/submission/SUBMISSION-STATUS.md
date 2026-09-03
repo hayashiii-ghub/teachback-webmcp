@@ -1,5 +1,9 @@
 # Devpost submission status — 2026-08-30
 
+> **Historical receipt.** It proves the earlier submission succeeded; it does
+> not prove that the current site, seven-tool repository, or 133-second video
+> has replaced the old materials on Devpost.
+
 Existing submission: Teachback, project 1157826, The WebMCP Challenge 31011.
 Status: **Submitted.**
 

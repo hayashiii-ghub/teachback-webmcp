@@ -1,0 +1,16 @@
+<template>
+  <style>
+    #root{position:relative;width:1920px;height:1080px;overflow:hidden;background:#fbfaf6}
+    .ground{position:absolute;inset:0;background:#fbfaf6}
+    .viewport{position:absolute;inset:0 0 180px 0;overflow:hidden}
+    .world{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:50% 50%;will-change:transform}
+    .screen{position:absolute;inset:0;width:1920px;height:1080px;object-fit:cover}
+  </style>
+  <div data-hf-id="hf-4j3d" id="root" data-composition-id="evidence" data-width="1920" data-height="1080" data-duration="7.8">
+    <div data-hf-id="hf-nrqi" id="evidence-ground" class="ground clip" data-start="0" data-duration="7.8" data-track-index="1"></div>
+    <div data-hf-id="hf-rhem" class="viewport"><div data-hf-id="hf-xmln" id="evidence-world" class="world" data-layout-allow-overflow="">
+      <img data-hf-id="hf-qmo6" id="evidence-record" class="clip screen" src="assets/captures/still-recorded.png" data-start="0" data-duration="7.8" data-track-index="0" alt="Recorded semantic operations ready for an agent">
+    </div></div>
+  </div>
+  <script>(()=>{const world=document.getElementById("evidence-world");gsap.set(world,{scale:.834,x:0,y:-90});const tl=gsap.timeline({paused:true});tl.to(world,{scale:1.02,x:-55,y:-125,duration:1.15,ease:"power2.inOut"},1.1);tl.to(world,{scale:1,x:-48,y:-120,duration:4.8,ease:"none"},2.25);window.__timelines=window.__timelines||{};window.__timelines.evidence=tl;})();</script>
+</template>

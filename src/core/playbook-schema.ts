@@ -148,12 +148,26 @@ function literalRuns(tokens: TextToken[]): string[] {
 }
 function escapedPattern(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
+function hasDelimitedSourceValue(runs: string[], value: string | null): boolean {
+  if (!value) return false;
+  const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapedPattern(value)}(?=$|[^\\p{L}\\p{N}])`, "iu");
+  return runs.some(run => pattern.test(run));
+}
+
+function hasSourceDate(runs: string[], source: string | null): boolean {
+  if (!source || !validDate(source)) return false;
+  return [source, source.replaceAll("-", "/")].some(value => hasDelimitedSourceValue(runs, value));
+}
+
 function hasSourceName(runs: string[], source: string): boolean {
-  // Only use the exact supplied name and clear whitespace-delimited components.
-  // Do not invent nicknames, transliterations, or short aliases such as "May".
-  const names = new Set([source, ...source.split(/[\s,]+/u)
+  // Only use the exact supplied name, clear long components, and the final
+  // component (the surname in the synthetic Western-style fixtures). This
+  // catches short surnames such as Kim/Li without treating a first name that
+  // is also an ordinary word, such as "May", as source-specific everywhere.
+  const parts = source.split(/[\s,]+/u)
     .map(part => part.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
-    .filter(part => (part.match(/\p{L}/gu)?.length ?? 0) >= 4)]);
+    .filter(Boolean);
+  const names = new Set([source, ...parts.filter(part => (part.match(/\p{L}/gu)?.length ?? 0) >= 4), ...(parts.length > 1 ? [parts.at(-1)!] : [])]);
   // Japanese honorifics directly follow names, often with no further word break.
   // Keep ordinary word boundaries for other suffixes (for example Alex/Alexandra).
   return [...names].some(name => name && runs.some(run => new RegExp(`(^|[^\\p{L}\\p{N}])${escapedPattern(name)}(?=$|[^\\p{L}\\p{N}]|様|さま|さん|殿)`, "iu").test(run)));
@@ -171,7 +185,12 @@ function hasSourceTime(runs: string[], source: string | null): boolean {
   const twentyFour = new RegExp(`(^|[^0-9])${displayHour(hour24)}:${minute}${noExplicitPeriod}(?=$|[^0-9])`, "iu");
   const period = hour24 < 12 ? "a" : "p";
   const twelve = new RegExp(`(^|[^0-9])${displayHour(hour12)}${minute === "00" ? "(?::00)?" : `:${minute}`}\\s*${period}\\.?\\s*m\\.?(?=$|[^\\p{L}\\p{N}])`, "iu");
-  return runs.some(run => twentyFour.test(run) || twelve.test(run));
+  const minuteJa = String(Number(minute));
+  const japaneseMinute = minute === "00" ? "(?:00分)?" : `${minuteJa}分`;
+  const japanese24 = new RegExp(`(^|[^0-9])${hour24}時${japaneseMinute}(?!間)(?=$|[^0-9])`, "u");
+  const japanesePeriod = hour24 < 12 ? "午前" : "午後";
+  const japanese12 = new RegExp(`(^|[^0-9])${japanesePeriod}\\s*${hour12}時${japaneseMinute}(?!間)(?=$|[^0-9])`, "u");
+  return runs.some(run => twentyFour.test(run) || twelve.test(run) || japanese24.test(run) || japanese12.test(run));
 }
 
 /** Semantic issues are reviewable draft content; they must block publication. */
@@ -191,7 +210,11 @@ export function proposalIssues(proposal: Proposal, demo: Demonstration, business
     else if (!step.evidenceCommandIds.includes(finalCommand.id)) issues.push(problem(`${path}.evidenceCommandIds`, "FINAL_EVIDENCE_REQUIRED", "Include the command that produced the final recorded value."));
     if (step.type === "draft_guest_message" || step.type === "add_shift_handoff") {
       const runs = literalRuns(step.input.template);
-      if (hasSourceName(runs, demo.before.guestDisplayName) || [demo.before.requestedArrivalTime, demo.after.estimatedArrivalTime].some(time => hasSourceTime(runs, time))) issues.push(problem(`${path}.input.template`, "SOURCE_VALUE_NOT_PARAMETERIZED", "A source guest name, name component, or arrival time remains literal. Replace it with an allowed case-field token. If the recorded form cannot be reproduced with that token, review and record reusable wording before publishing."));
+      const sourceSpecificValueRemains = hasSourceName(runs, demo.before.guestDisplayName)
+        || hasDelimitedSourceValue(runs, demo.before.id)
+        || [demo.before.arrivalDate, demo.before.requestedArrivalDate, demo.after.estimatedArrivalDate].some(date => hasSourceDate(runs, date))
+        || [demo.before.plannedArrivalTime, demo.before.requestedArrivalTime, demo.after.estimatedArrivalTime].some(time => hasSourceTime(runs, time));
+      if (sourceSpecificValueRemains) issues.push(problem(`${path}.input.template`, "SOURCE_VALUE_NOT_PARAMETERIZED", "A source case ID, date, guest name, name component, or time remains literal. Replace it with an allowed case-field token. If the recorded form cannot be reproduced with those tokens, review and record reusable wording before publishing."));
     }
     const resolved = resolveStep(step, demo.before);
     if (!resolved.ok || !resolved.data) { issues.push(...(resolved.issues ?? [])); continue; }

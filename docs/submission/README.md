@@ -20,7 +20,7 @@ submitted!**; see the [submission record](SUBMISSION-STATUS.md) and
 | [Screenshot gallery](SCREENSHOTS.md) | Five full-resolution PNGs with English captions, in narrative order |
 | [Final cut](../demo-script.md) | 94-second structure and exact proof timestamps |
 | [Final narration](../video-shoot/SCRIPT.md) | The nine English voice lines and measured placements |
-| [Project README](../../README.md) | Setup, the two demo routes, five tools, and prototype limitations |
+| [Legacy project README](../legacy-demo-readme.md) | Historical setup, two demo routes, five tools, and prototype limitations |
 | [Final Devpost cover](devpost-cover-final.png) | 1536×1024 PNG; simplified wordmark and final-video copy; used by the submitted entry |
 | [Cover provenance](COVER.md) | Editing prompt, source image, and output details |
 | [Previous Devpost thumbnail](../../public/devpost-thumbnail.png) | Preserved unchanged; no longer the submitted entry's cover |

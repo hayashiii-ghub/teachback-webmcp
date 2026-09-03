@@ -1,5 +1,10 @@
 # Teachback — English submission copy
 
+> **Historical package. Do not use for the current submission.** This describes
+> the superseded 94-second, five-tool prototype. Use
+> [`docs/submission-v2/`](../submission-v2/README.md) for the recorded-workflow,
+> seven-tool version.
+
 Copy prepared against the accepted 94-second video. The name, tagline, story,
 video link, screenshot captions, and additional information were saved to the
 existing Devpost entry on 2026-08-30. The creator then authorized final submission,

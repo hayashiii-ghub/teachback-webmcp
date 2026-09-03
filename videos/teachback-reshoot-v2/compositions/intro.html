@@ -1,0 +1,17 @@
+<template>
+  <style>
+    @font-face{font-family:"Iowan Old Style";src:local("Iowan Old Style Roman"),local("IowanOldStyle-Roman");font-style:normal;font-weight:400 600}
+    #root{position:relative;width:1920px;height:1080px;overflow:hidden;background:#fbfaf6;color:#111}
+    .app{position:absolute;inset:0 0 180px 0;overflow:hidden;background:#fbfaf6}
+    .screen{position:absolute;inset:0;width:1920px;height:1080px;object-fit:cover;filter:saturate(.82) contrast(.96)}
+    .veil{position:absolute;inset:0;background:linear-gradient(90deg,rgba(251,250,246,.98) 0%,rgba(251,250,246,.91) 39%,rgba(251,250,246,.34) 72%,rgba(251,250,246,.18) 100%)}
+    .copy{position:absolute;left:50%;top:450px;width:1240px;transform:translate(-50%,-50%);text-align:center}
+    h1{font-family:"Iowan Old Style",Georgia,serif;font-size:100px;line-height:.98;font-weight:600;letter-spacing:-.045em;max-width:none}
+    .rule{width:276px;height:4px;background:#a54436;margin:36px auto 0}
+  </style>
+  <div data-hf-id="hf-mpeg" id="root" data-composition-id="intro" data-width="1920" data-height="1080" data-duration="5.4">
+    <div data-hf-id="hf-gk5l" class="app"><img data-hf-id="hf-5eb6" class="screen" src="assets/captures/still-recorded.png" alt="Teachback application with recorded work"><div data-hf-id="hf-h5f4" class="veil"></div></div>
+    <div data-hf-id="hf-bdx3" class="copy"><h1 data-hf-id="hf-lqlu" id="intro-title">Turn handled work into governed reuse.</h1><div data-hf-id="hf-4axd" id="intro-rule" class="rule"></div></div>
+  </div>
+  <script>(()=>{const tl=gsap.timeline({paused:true});tl.fromTo("#intro-title",{opacity:0,y:28},{opacity:1,y:0,duration:.8,ease:"power2.out"},.2);tl.fromTo("#intro-rule",{scaleX:0,transformOrigin:"50% 50%"},{scaleX:1,duration:.65,ease:"power2.out"},.68);window.__timelines=window.__timelines||{};window.__timelines.intro=tl;})();</script>
+</template>
